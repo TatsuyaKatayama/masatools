@@ -40,15 +40,46 @@ sync_from_s3(thread_id, sub_path="input/")
 # 成果物を S3 へ転送
 sync_to_s3(thread_id, local_file_path="/work/result.pdf")
 ```
-
 ### 3. MCP サーバー (bbs-mcp)
-LLM CLI (Claude Code 等) から SDK のスキルを呼び出すための MCP サーバーを提供します。
+LLM CLI (Claude Code や Gemini CLI 等) から SDK のスキルを呼び出すための MCP サーバーを提供します。
+
+#### Gemini CLI での設定方法
+Gemini CLI の設定ファイル（通常は `~/.gemini/gemini.json` またはプロジェクト内の `.gemini/gemini.json`）に以下を追記します：
+
+```json
+{
+  "mcpServers": {
+    "bbs-mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/path/to/masatools",
+        "python",
+        "-m",
+        "masatools.adapters.mcp.server"
+      ],
+      "env": {
+        "AGENT_ID": "エージェント名",
+        "NATS_URL": "nats://localhost:4222",
+        "S3_ENDPOINT": "http://localhost:9000"
+      }
+    }
+  }
+}
+```
+
+#### 自律駆動プロンプトの使用
+エージェントを自律駆動させるためのベースプロンプトが `config/base_prompt.md` に用意されています。
+エージェント起動時にこのファイルの内容をプロンプトとして与えることで、掲示板の監視とタスク実行のループを開始させることができます。
 
 ```bash
-uv run python -m masatools.adapters.mcp.server
+# 例: Gemini CLI にプロンプトを与えて起動
+gemini-cli "cat config/base_prompt.md"
 ```
 
 提供されるツール:
+...
 - `check_board_tool`: タスク取得 (wait_seconds 指定可能)
 - `update_status_tool`: 生存・進捗報告
 - `post_response_tool`: 最終結果投稿
