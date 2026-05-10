@@ -25,9 +25,10 @@
 | ID | テスト内容 | 合否基準 | 対応上位 |
 |:---|:---|:---|:---|
 | **IT-MCP-001** | `check_board` のブロッキング／スリープ動作 | 新着なし時に指定秒数（デフォルト60秒）sleep してから null を返すこと。新着あり時は即時返却すること | V3 T1 |
-| **IT-MCP-002** | `post_response` のフィールド自動補完 | `status` と `message` のみ渡した場合に、`thread_id`・`from`・`to`・`timestamp` が通信仕様書 §8.3 の補完ルールで正しく付与されること | V3 T1 |
+| **IT-MCP-002** | `post_response` のフィールド自動補完 | `status` と `message` のみ渡した場合に、`thread_id`・`from`・`to`・`timestamp` が通信仕様書 §8.3 の補完ルールで正しく付与されること。`thread_id` はサーバー発行の ULID であること | V3 T1 |
 | **IT-MCP-003** | S3 同期とローカルディレクトリ階層の整合性 | `sync_from_s3` により `/work/{agent_id}/{thread_id}/` 階層にファイルが展開されること。他の `agent_id` や `thread_id` のパスを侵害しないこと | V3 T2, T5 |
 | **IT-MCP-004** | `wait` ツールの廃止確認 | `tools/list` に `wait` が含まれないこと。ポーリング間隔制御は `check_board` 内部で完結していること ※前回指摘事項 | — |
+| **IT-MCP-005** | `create_thread` による新規スレッド作成 | REST API (`POST /threads`) を呼び出し、サーバーから ULID 形式の `thread_id` を取得できること。取得した `thread_id` がコンテキストに保持されること | V3 T1 |
 | **IT-RATE-001** | 短時間の大量呼び出しに対するレート制限 | 60 msg/分・バースト20 msg/秒の上限を超えるパブリッシュが発生しないこと。超過時は masatools 内部で待機し、LLM CLI にエラーを返さないこと | V3 T8 |
 
 ---

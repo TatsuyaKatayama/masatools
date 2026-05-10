@@ -2,6 +2,7 @@ import json
 import time
 from typing import Optional, List, Callable, Awaitable
 import nats
+import nkeys
 from nats.errors import TimeoutError
 from .models import MessageEnvelope
 from .context import AgentContext
@@ -19,9 +20,13 @@ class NATSClient:
         }
         
         if self.context.nats_jwt and self.context.nats_nkey:
-            # Note: nats-py expects a cb for user_credentials or user_jwt
-            # This is a simplified placeholder for JWT/NKey auth
-            pass
+            sk = nkeys.from_seed(self.context.nats_nkey.encode())
+            
+            async def signature_cb(nonce):
+                return sk.sign(nonce)
+            
+            opts["user_jwt"] = self.context.nats_jwt
+            opts["signature_cb"] = signature_cb
 
         self.nc = await nats.connect(**opts)
         self.js = self.nc.jetstream()
@@ -35,7 +40,22 @@ class NATSClient:
             timestamp=int(time.time()),
             payload=payload
         )
-        data = envelope.model_dump_json(by_alias=True).encode()
+        
+        # Signing
+        if self.context.nats_nkey:
+            import base64
+            # We must match the Go server's JSON marshal behavior for verification.
+            # Go standard library's json.Marshal sorts map keys, but struct fields follow their definition order.
+            # Here we produce a canonical JSON (no whitespace, sorted keys) to be safe.
+            # Note: The Go server must also use a consistent method to verify.
+            envelope.signature = None
+            data_to_sign = json.dumps(envelope.model_dump(by_alias=True, exclude={'signature'}), separators=(',', ':'), sort_keys=True).encode()
+            
+            sk = nkeys.from_seed(self.context.nats_nkey.encode())
+            sig_bytes = sk.sign(data_to_sign)
+            envelope.signature = base64.b64encode(sig_bytes).decode()
+
+        data = envelope.model_dump_json(by_alias=True, exclude_none=True).encode()
         await self.js.publish(subject, data)
 
     async def pull_task(self, stream: str, subject: str, durable: str) -> Optional[MessageEnvelope]:

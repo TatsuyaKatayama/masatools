@@ -50,6 +50,7 @@ class MessageEnvelope(BaseModel):
     observers: List[str] = []
     timestamp: int = Field(default_factory=lambda: int(time.time()))
     payload: Any # Detailed validation can be done based on 'type'
+    signature: Optional[str] = None
 
     @field_validator("thread_id")
     @classmethod

@@ -12,10 +12,14 @@ uv pip install -e .
 ## 主な機能
 
 ### 1. 掲示板操作 (Common Skills)
-エージェントが掲示板（NATS）とやり取りするための高レベルな関数群です。
+エージェントが掲示板（NATS/API）とやり取りするための高レベルな関数群です。
 
 ```python
-from masatools.skills.common.board import check_board, post_response, update_status
+from masatools.skills.common.board import check_board, post_response, update_status, create_thread
+
+# 新規スレッド（タスク）の作成
+# サーバーから発行された ULID が返され、コンテキストに保持されます
+await create_thread(command="解析を実行してください", deadline="2026-05-15")
 
 # タスクの確認 (新着なし時は指定秒数待機)
 task_info = await check_board(wait_seconds=60)
@@ -24,7 +28,7 @@ task_info = await check_board(wait_seconds=60)
 await update_status(progress=50, state="RUNNING", message="処理中...")
 
 # 結果の投稿
-await post_response(status="SUCCESS", message="解析が完了しました")
+await post_response(output_dir="tasks/{tid}/output/", exit_code=0)
 ```
 
 ### 2. ストレージ同期 (Storage Skills)
@@ -79,7 +83,7 @@ gemini-cli "cat config/base_prompt.md"
 ```
 
 提供されるツール:
-...
+- `create_thread_tool`: 新規スレッド作成 (REST API)
 - `check_board_tool`: タスク取得 (wait_seconds 指定可能)
 - `update_status_tool`: 生存・進捗報告
 - `post_response_tool`: 最終結果投稿
@@ -99,6 +103,8 @@ SDK の動作には以下の環境変数が必要です：
 
 - `AGENT_ID`: エージェントの一意識別子
 - `NATS_URL`: NATS サーバーの URL (default: `nats://localhost:4222`)
+- `API_URL`: masabbs REST API の URL (default: `http://localhost:8080`)
+- `NATS_JWT`, `NATS_NKEY`: NATS 認証情報 (オプション)
 - `S3_ENDPOINT`: S3 (MinIO) のエンドポイント (default: `http://localhost:9000`)
 - `S3_BUCKET`: 使用するバケット名 (default: `ma-system`)
 - `S3_ACCESS_KEY`, `S3_SECRET_KEY`: S3 認証情報

@@ -1,8 +1,41 @@
 import os
 import asyncio
-from typing import Optional
+import httpx
+from typing import Optional, List
 from ...core import get_nats_client, get_default_context
 from ...core.models import MessageEnvelope
+
+async def create_thread(command: str, deadline: str, to: List[str] = [], observers: List[str] = [], parent_thread_id: str = None) -> str:
+    """
+    Creates a new thread via the masabbs REST API.
+    """
+    context = get_default_context()
+    url = f"{context.api_url}/api/v1/threads"
+    
+    payload = {
+        "command": command,
+        "created_by_agent": context.agent_id,
+        "deadline": deadline,
+        "to": to,
+        "observers": observers
+    }
+    if parent_thread_id:
+        payload["parent_thread_id"] = parent_thread_id
+    elif context.current_thread_id:
+        payload["parent_thread_id"] = context.current_thread_id
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload)
+        if response.status_code != 201:
+            return f"Error: Failed to create thread. Status: {response.status_code}, Body: {response.text}"
+        
+        data = response.json()
+        thread_id = data.get("thread_id")
+        if thread_id:
+            context.current_thread_id = thread_id
+            return f"Thread created: {thread_id}\nInput Directory: {data.get('input_dir')}"
+        else:
+            return f"Error: thread_id not found in response: {data}"
 
 async def check_board(wait_seconds: int = 60) -> str:
     """
@@ -30,6 +63,35 @@ async def check_board(wait_seconds: int = 60) -> str:
         await asyncio.sleep(wait_seconds)
     
     return "No tasks found"
+
+async def send_offer(eta_seconds: int, confidence: float, thread_id: str = None) -> str:
+    """
+    Sends an offer to perform a task.
+    'eta_seconds' is the estimated time to completion.
+    'confidence' is a value between 0.0 and 1.0.
+    """
+    client = await get_nats_client()
+    context = get_default_context()
+    
+    tid = thread_id or context.current_thread_id
+    if not tid:
+        return "Error: No active thread_id found in context."
+    
+    payload = {
+        "eta_seconds": eta_seconds,
+        "confidence": confidence
+    }
+    
+    # Subject: board.offer.{thread_id}
+    subject = f"board.offer.{tid}"
+    await client.publish(
+        subject=subject,
+        message_type="offer",
+        payload=payload,
+        thread_id=tid
+    )
+    
+    return f"Offer sent for thread {tid}"
 
 async def update_status(progress: int, state: str, message: Optional[str] = None, thread_id: str = None) -> str:
     """
@@ -59,9 +121,9 @@ async def update_status(progress: int, state: str, message: Optional[str] = None
     
     return f"Status updated: {state} ({progress}%)"
 
-async def post_response(status: str, message: str, thread_id: str = None) -> str:
+async def send_assign(to: List[str], reason: Optional[str] = None, thread_id: str = None) -> str:
     """
-    Posts a result or status back to the NATS board.
+    Assigns a task to specific agents.
     """
     client = await get_nats_client()
     context = get_default_context()
@@ -71,13 +133,40 @@ async def post_response(status: str, message: str, thread_id: str = None) -> str
         return "Error: No active thread_id found in context."
     
     payload = {
-        "state": status.lower(),
-        "progress": 100 if status.upper() == "SUCCESS" else 0,
-        "message": message
+        "reason": reason
     }
     
-    # Subject: board.result.{thread_id} or board.status.{agent_id}
-    # For simplicity, we'll use board.result.{tid} for SUCCESS/ERROR
+    # Subject: board.assign.{thread_id}
+    subject = f"board.assign.{tid}"
+    await client.publish(
+        subject=subject,
+        message_type="assign",
+        payload=payload,
+        thread_id=tid,
+        to=to
+    )
+    
+    return f"Assignment sent to {to} for thread {tid}"
+
+async def post_response(output_dir: str, exit_code: int = 0, error: Optional[str] = None, thread_id: str = None) -> str:
+    """
+    Posts a final result to the NATS board.
+    """
+    client = await get_nats_client()
+    context = get_default_context()
+    
+    tid = thread_id or context.current_thread_id
+    if not tid:
+        return "Error: No active thread_id found in context."
+    
+    payload = {
+        "output_dir": output_dir,
+        "exit_code": exit_code,
+    }
+    if error:
+        payload["error"] = error
+        
+    # Subject: board.result.{thread_id}
     subject = f"board.result.{tid}"
     await client.publish(
         subject=subject,
@@ -86,4 +175,4 @@ async def post_response(status: str, message: str, thread_id: str = None) -> str
         thread_id=tid
     )
     
-    return f"Response posted to {subject}"
+    return f"Result posted to {subject} (exit_code: {exit_code})"

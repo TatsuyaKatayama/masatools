@@ -16,13 +16,15 @@ def test_mcp_tools_registered():
         post_response_tool, 
         sync_from_s3_tool, 
         sync_to_s3_tool, 
-        update_status_tool
+        update_status_tool,
+        create_thread_tool
     )
     assert check_board_tool is not None
     assert post_response_tool is not None
     assert sync_from_s3_tool is not None
     assert sync_to_s3_tool is not None
     assert update_status_tool is not None
+    assert create_thread_tool is not None
 
 @pytest.mark.asyncio
 async def test_mcp_check_board_call():
@@ -32,6 +34,15 @@ async def test_mcp_check_board_call():
         result = await check_board_tool(wait_seconds=10)
         assert result == "Task found"
         mock_check.assert_called_once_with(wait_seconds=10)
+
+@pytest.mark.asyncio
+async def test_mcp_post_response_tool_call():
+    with patch("masatools.adapters.mcp.server.post_response", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = "Result posted"
+        from masatools.adapters.mcp.server import post_response_tool
+        result = await post_response_tool(output_dir="out", exit_code=0)
+        assert result == "Result posted"
+        mock_post.assert_called_once_with("out", 0, None, None)
 
 @pytest.mark.asyncio
 async def test_mcp_update_status_call():
