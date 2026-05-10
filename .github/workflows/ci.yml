@@ -11,7 +11,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - name: Checkout masatools
+      uses: actions/checkout@v6
+      with:
+        path: masatools
+
+    - name: Checkout masabbs
+      uses: actions/checkout@v6
+      with:
+        repository: TatsuyaKatayama/masabbs
+        path: masabbs
 
     - name: Install uv
       uses: astral-sh/setup-uv@v8.1.0
@@ -22,7 +31,9 @@ jobs:
       run: uv python install 3.12
 
     - name: Install dependencies
-      run: uv sync
+      run: |
+        cd masatools
+        uv sync
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -30,9 +41,13 @@ jobs:
         go-version: '1.22'
 
     - name: Run SDK tests
-      run: uv run pytest tests/sdk/
+      run: |
+        cd masatools
+        uv run pytest tests/sdk/
 
     - name: Run Integration tests
-      # Note: This assumes masabbs is in the sibling directory.
-      # In a real CI, you'd need to checkout the sibling repo.
-      run: uv run pytest -s tests/integration/
+      env:
+        MASABBS_PATH: ${{ github.workspace }}/masabbs
+      run: |
+        cd masatools
+        uv run pytest -s tests/integration/

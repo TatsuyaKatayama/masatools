@@ -10,8 +10,7 @@ import masatools.core.context
 import masatools.core
 
 # パスの設定
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-BBS_DIR = os.path.join(BASE_DIR, "masabbs")
+BBS_DIR = os.getenv("MASABBS_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..", "masabbs")))
 API_URL = "http://localhost:8080"
 NATS_URL = "nats://localhost:4222"
 
