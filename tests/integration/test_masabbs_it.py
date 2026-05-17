@@ -177,14 +177,18 @@ async def test_masabbs_integration_workflow():
 
     # 最終確認 (サーバー側DB)
     print("\n--- Step 7: Final DB Verification ---")
+    expected_types = ["task", "offer", "assign", "status", "result"]
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{API_URL}/api/v1/tasks")
-        tasks = resp.json()
-        
-        # 全てのステップのメッセージが揃っているか確認
-        msg_types = [t["type"] for t in tasks if t["thread_id"] == thread_id]
-        print(f"Recorded message types: {msg_types}")
-        for t in ["task", "offer", "assign", "status", "result"]:
-            assert t in msg_types, f"Message type '{t}' missing from DB"
+        for _ in range(10):
+            resp = await client.get(f"{API_URL}/api/v1/tasks")
+            tasks = resp.json()
+            msg_types = [t["type"] for t in tasks if t["thread_id"] == thread_id]
+            if all(t in msg_types for t in expected_types):
+                break
+            await asyncio.sleep(1)
+        else:
+            print(f"Recorded message types: {msg_types}")
+            for t in expected_types:
+                assert t in msg_types, f"Message type '{t}' missing from DB. Current: {msg_types}"
 
     print("\nIntegration test passed successfully!")
