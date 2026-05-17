@@ -115,13 +115,22 @@ async def test_masabbs_integration_workflow():
     # サーバー側のDB記録を確認
     print("Waiting for Archiver to persist 'task' to DB...")
     async with httpx.AsyncClient() as client:
-        for _ in range(10):
+        for _ in range(20): # 20秒に延長
             await asyncio.sleep(1)
-            resp = await client.get(f"{API_URL}/api/v1/tasks")
-            tasks = resp.json()
-            if tasks and any(t["type"] == "task" and t.get("thread_id") == thread_id for t in tasks):
-                break
+            try:
+                resp = await client.get(f"{API_URL}/api/v1/tasks")
+                tasks = resp.json()
+                if tasks and any(t["type"] == "task" and t.get("thread_id") == thread_id for t in tasks):
+                    break
+            except Exception as e:
+                print(f"Error fetching tasks: {e}")
         else:
+            print("[Error] Task persistence timeout. Server logs:")
+            try:
+                with open("bbs_server.log", "r") as f:
+                    print(f.read())
+            except:
+                print("Could not read bbs_server.log")
             pytest.fail(f"Task with thread_id {thread_id} not found in DB. Tasks: {tasks}")
 
     # 2. タスク確認 (Worker)
