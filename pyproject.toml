@@ -1,6 +1,6 @@
 [project]
 name = "masatools"
-version = "1.0.1"
+version = "1.0.2"
 description = "SDK for Multi-Agent Message Board System (masabbs)"
 authors = [{ name = "TatsuyaKatayama" }]
 requires-python = ">=3.12"
