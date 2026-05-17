@@ -58,7 +58,7 @@ def masabbs_services():
     
     # ヘルスチェック
     print("[Setup] Waiting for API health check...")
-    max_retries = 30
+    max_retries = 60
     ready = False
     for i in range(max_retries):
         try:
