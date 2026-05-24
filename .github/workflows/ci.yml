@@ -42,10 +42,10 @@ jobs:
         go-version-file: 'masabbs/go.mod'
         cache-dependency-path: 'masabbs/go.sum'
 
-    - name: Run SDK tests
+    - name: Run SDK and MCP Protocol tests
       run: |
         cd masatools
-        uv run pytest tests/sdk/
+        uv run pytest -s tests/sdk/
 
     - name: Run Integration tests
       env:
