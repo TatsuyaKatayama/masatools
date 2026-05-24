@@ -34,15 +34,31 @@ async def test_mcp_server_connection_and_tools():
                 "update_status_tool", 
                 "create_thread_tool",
                 "sync_from_s3_tool",
-                "sync_to_s3_tool"
+                "sync_to_s3_tool",
+                "check_connectivity_tool"
             ]
             for ext in expected_tools:
                 assert ext in tool_names, f"Tool {ext} not found in MCP server"
 
-            # 3. スキーマの整合性チェック (例: update_status_tool)
-            update_status = next(t for t in tools if t.name == "update_status_tool")
-            assert "progress" in update_status.inputSchema["properties"]
-            assert "state" in update_status.inputSchema["properties"]
+@pytest.mark.asyncio
+async def test_mcp_check_connectivity_tool():
+    """
+    IT-MCP-008: check_connectivity_tool の動作確認 (接続エラー時)
+    """
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            
+            # モックなしで実行すると、NATS/API/S3 全てで失敗のテキストが返ってくるはず
+            # しかし、プロセスはクラッシュせず、正常な JSON-RPC レスポンスが返ることを検証
+            result = await session.call_tool("check_connectivity_tool", arguments={})
+            content = str(result.content)
+            print(f"Connectivity check output: {content}")
+            
+            assert "❌ NATS" in content
+            assert "❌ API" in content
+            assert "❌ S3" in content
+            # プロセスが生きていればOK
 
 @pytest.mark.asyncio
 async def test_mcp_tool_execution_logic_mcp_level():

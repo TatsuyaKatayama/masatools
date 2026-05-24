@@ -13,10 +13,15 @@ class NATSClient:
         self.nc = None
         self.js = None
 
-    async def connect(self):
+    async def connect(self, max_reconnect_attempts: int = 3, connect_timeout: int = 5, allow_reconnect: bool = True):
+        import asyncio
         opts = {
             "servers": [self.context.nats_url],
             "name": self.context.agent_id,
+            "max_reconnect_attempts": max_reconnect_attempts,
+            "connect_timeout": connect_timeout,
+            "allow_reconnect": allow_reconnect,
+            "dont_randomize": True,
         }
         
         if self.context.nats_jwt and self.context.nats_nkey:
@@ -28,7 +33,8 @@ class NATSClient:
             opts["user_jwt"] = self.context.nats_jwt
             opts["signature_cb"] = signature_cb
 
-        self.nc = await nats.connect(**opts)
+        # Use wait_for to ensure we don't hang during initial connection
+        self.nc = await asyncio.wait_for(nats.connect(**opts), timeout=connect_timeout + 1)
         self.js = self.nc.jetstream()
 
     async def publish(self, subject: str, message_type: str, payload: dict, thread_id: str, to: List[str] = []):
