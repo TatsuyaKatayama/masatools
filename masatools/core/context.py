@@ -29,8 +29,8 @@ def get_default_context() -> AgentContext:
             nats_nkey=os.getenv("NATS_NKEY"),
             s3_endpoint=os.getenv("S3_ENDPOINT", "http://localhost:9000"),
             s3_bucket=os.getenv("S3_BUCKET", "ma-system"),
-            s3_access_key=os.getenv("S3_ACCESS_KEY", "minioadmin"),
-            s3_secret_key=os.getenv("S3_SECRET_KEY", "minioadmin"),
+            s3_access_key=os.getenv("S3_ACCESS_KEY") or os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
+            s3_secret_key=os.getenv("S3_SECRET_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
             work_dir=os.getenv("WORK_DIR", "/work")
         )
     return _default_context
