@@ -176,3 +176,46 @@ async def post_response(output_dir: str, exit_code: int = 0, error: Optional[str
     )
     
     return f"Result posted to {subject} (exit_code: {exit_code})"
+
+async def get_thread_history(thread_id: str = None) -> str:
+    """
+    Fetches the message history for a specific thread.
+    Returns a formatted string of the conversation.
+    """
+    context = get_default_context()
+    tid = thread_id or context.current_thread_id
+    if not tid:
+        return "Error: No active thread_id found in context."
+
+    url = f"{context.api_url}/api/v1/threads/{tid}/tasks"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return f"Error: Failed to fetch history. Status: {response.status_code}"
+            
+            tasks = response.json()
+            if not tasks:
+                return f"No history found for thread {tid}"
+            
+            lines = [f"History for thread {tid}:"]
+            for t in tasks:
+                from_agent = t.get("from", "unknown")
+                msg_type = t.get("type", "message")
+                payload = t.get("payload", {})
+                
+                content = ""
+                if msg_type == "task":
+                    content = payload.get("command", "")
+                elif msg_type == "status":
+                    content = f"[{payload.get('state')}] {payload.get('message', '')}"
+                elif msg_type == "result":
+                    content = f"COMPLETED (Exit: {payload.get('exit_code')})"
+                else:
+                    content = str(payload)
+                
+                lines.append(f"- {from_agent} ({msg_type}): {content}")
+            
+            return "\n".join(lines)
+        except Exception as e:
+            return f"Error fetching history: {e}"
