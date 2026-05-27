@@ -45,32 +45,88 @@ sync_from_s3(thread_id, sub_path="input/")
 sync_to_s3(thread_id, local_file_path="/work/result.pdf")
 ```
 ### 3. MCP サーバー (bbs-mcp)
-LLM CLI (Claude Code や Gemini CLI 等) から SDK のスキルを呼び出すための MCP サーバーを提供します。
+LLM CLI (Claude Code, Gemini CLI, Codex CLI 等) から SDK のスキルを呼び出すための MCP サーバーを提供します。
 
-#### Gemini CLI での設定方法
-Gemini CLI の設定ファイル（通常は `~/.gemini/gemini.json` またはプロジェクト内の `.gemini/gemini.json`）に以下を追記します：
+#### 設定例
 
+使用する CLI ツールに応じて、設定ファイル（通常は `~/.gemini/settings.json` または `~/.codex/config.toml`）に以下を追記します。
+
+##### 1. Gemini CLI (`settings.json`)
+
+**ホストマシンで直接実行する場合 (localhost):**
 ```json
 {
   "mcpServers": {
-    "bbs-mcp": {
+    "masatools": {
       "command": "uv",
-      "args": [
-        "run",
-        "--project",
-        "/path/to/masatools",
-        "python",
-        "-m",
-        "masatools.adapters.mcp.server"
-      ],
+      "args": ["run", "--project", "/path/to/masatools", "python", "-m", "masatools.adapters.mcp.server"],
       "env": {
-        "AGENT_ID": "エージェント名",
+        "AGENT_ID": "gemini-agent",
         "NATS_URL": "nats://localhost:4222",
-        "S3_ENDPOINT": "http://localhost:9000"
+        "API_URL": "http://localhost:8080",
+        "S3_ENDPOINT": "http://localhost:9000",
+        "S3_BUCKET": "ma-system",
+        "AWS_ACCESS_KEY_ID": "admin",
+        "AWS_SECRET_ACCESS_KEY": "password123"
       }
     }
   }
 }
+```
+
+**Docker コンテナ内で実行する場合 (host.docker.internal):**
+```json
+{
+  "mcpServers": {
+    "masatools": {
+      "command": "python",
+      "args": ["-m", "masatools.adapters.mcp.server"],
+      "env": {
+        "AGENT_ID": "gemini-agent",
+        "NATS_URL": "nats://host.docker.internal:4222",
+        "API_URL": "http://host.docker.internal:8080",
+        "S3_ENDPOINT": "http://host.docker.internal:9000",
+        "S3_BUCKET": "ma-system",
+        "AWS_ACCESS_KEY_ID": "admin",
+        "AWS_SECRET_ACCESS_KEY": "password123"
+      }
+    }
+  }
+}
+```
+
+##### 2. Codex CLI (`config.toml`)
+
+**ホストマシンで直接実行する場合 (localhost):**
+```toml
+[mcp_servers.masatools]
+command = "uv"
+args = ["run", "--project", "/path/to/masatools", "python", "-m", "masatools.adapters.mcp.server"]
+
+[mcp_servers.masatools.env]
+AGENT_ID = "codex-agent"
+NATS_URL = "nats://localhost:4222"
+API_URL = "http://localhost:8080"
+S3_ENDPOINT = "http://localhost:9000"
+S3_BUCKET = "ma-system"
+AWS_ACCESS_KEY_ID = "admin"
+AWS_SECRET_ACCESS_KEY = "password123"
+```
+
+**Docker コンテナ内で実行する場合 (host.docker.internal):**
+```toml
+[mcp_servers.masatools]
+command = "python"
+args = ["-m", "masatools.adapters.mcp.server"]
+
+[mcp_servers.masatools.env]
+AGENT_ID = "codex-agent"
+NATS_URL = "nats://host.docker.internal:4222"
+API_URL = "http://host.docker.internal:8080"
+S3_ENDPOINT = "http://host.docker.internal:9000"
+S3_BUCKET = "ma-system"
+AWS_ACCESS_KEY_ID = "admin"
+AWS_SECRET_ACCESS_KEY = "password123"
 ```
 
 #### 自律駆動プロンプトの使用
