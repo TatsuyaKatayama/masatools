@@ -42,7 +42,7 @@ async def test_mcp_post_response_tool_call():
         from masatools.adapters.mcp.server import post_response_tool
         result = await post_response_tool(output_dir="out", exit_code=0)
         assert result == "Result posted"
-        mock_post.assert_called_once_with("out", 0, None, None)
+        mock_post.assert_called_once_with("out", 0, None, None, None)
 
 @pytest.mark.asyncio
 async def test_mcp_update_status_call():

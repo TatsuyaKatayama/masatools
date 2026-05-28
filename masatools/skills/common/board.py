@@ -148,7 +148,7 @@ async def send_assign(to: List[str], reason: Optional[str] = None, thread_id: st
     
     return f"Assignment sent to {to} for thread {tid}"
 
-async def post_response(output_dir: str, exit_code: int = 0, error: Optional[str] = None, thread_id: str = None) -> str:
+async def post_response(output_dir: Optional[str] = None, exit_code: int = 0, message: Optional[str] = None, error: Optional[str] = None, thread_id: str = None) -> str:
     """
     Posts a final result to the NATS board.
     """
@@ -160,9 +160,12 @@ async def post_response(output_dir: str, exit_code: int = 0, error: Optional[str
         return "Error: No active thread_id found in context."
     
     payload = {
-        "output_dir": output_dir,
         "exit_code": exit_code,
     }
+    if output_dir:
+        payload["output_dir"] = output_dir
+    if message:
+        payload["message"] = message
     if error:
         payload["error"] = error
         
@@ -211,6 +214,10 @@ async def get_thread_history(thread_id: str = None) -> str:
                     content = f"[{payload.get('state')}] {payload.get('message', '')}"
                 elif msg_type == "result":
                     content = f"COMPLETED (Exit: {payload.get('exit_code')})"
+                    if payload.get("message"):
+                        content += f" - {payload.get('message')}"
+                    if payload.get("output_dir"):
+                        content += f" (Files: {payload.get('output_dir')})"
                 else:
                     content = str(payload)
                 

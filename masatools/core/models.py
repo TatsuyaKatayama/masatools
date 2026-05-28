@@ -16,8 +16,9 @@ class AssignPayload(BaseModel):
     reason: Optional[str] = None
 
 class ResultPayload(BaseModel):
-    output_dir: str
+    output_dir: Optional[str] = None
     exit_code: int
+    message: Optional[str] = None
     error: Optional[str] = None
 
 class StatusPayload(BaseModel):

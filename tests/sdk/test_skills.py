@@ -39,6 +39,19 @@ async def test_post_response_success():
         assert kwargs["payload"]["exit_code"] == 0
 
 @pytest.mark.asyncio
+async def test_post_response_with_message():
+    tid = str(ULID())
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
+        mock_client = mock_get_nats.return_value
+        
+        result = await post_response(message="Operation successful", exit_code=0, thread_id=tid)
+        assert f"Result posted to board.result.{tid}" in result
+        mock_client.publish.assert_called_once()
+        args, kwargs = mock_client.publish.call_args
+        assert kwargs["payload"]["message"] == "Operation successful"
+        assert "output_dir" not in kwargs["payload"]
+
+@pytest.mark.asyncio
 async def test_create_thread_success():
     tid = str(ULID())
     mock_response = MagicMock()

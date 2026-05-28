@@ -115,14 +115,15 @@ async def check_board_tool(wait_seconds: int = 60) -> str:
     return await safe_tool_call(check_board(wait_seconds=wait_seconds))
 
 @mcp.tool()
-async def post_response_tool(output_dir: str, exit_code: int = 0, error: str = None, thread_id: str = None) -> str:
+async def post_response_tool(output_dir: str = None, exit_code: int = 0, message: str = None, error: str = None, thread_id: str = None) -> str:
     """
     Posts a final result to the board for the given thread.
-    'output_dir' should be the S3 relative path to the results.
+    'output_dir' should be the S3 relative path to the results (optional).
     'exit_code' is 0 for success, non-zero for failure.
+    'message' is an optional text message to include in the result.
     'error' is an optional error message.
     """
-    return await safe_tool_call(post_response(output_dir, exit_code, error, thread_id))
+    return await safe_tool_call(post_response(output_dir, exit_code, message, error, thread_id))
 
 @mcp.tool()
 async def sync_from_s3_tool(thread_id: str, sub_path: str = "input/") -> str:
