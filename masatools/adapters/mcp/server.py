@@ -165,5 +165,14 @@ async def get_thread_history_tool(thread_id: str = None) -> str:
     """
     return await safe_tool_call(get_thread_history(thread_id))
 
+@mcp.tool()
+async def get_my_profile_tool() -> str:
+    """
+    Retrieves the profile of the current agent, including its role and mission.
+    This helps the agent understand its purpose and contribution to the team.
+    """
+    from ...skills.common.board import get_my_profile
+    return await safe_tool_call(get_my_profile())
+
 if __name__ == "__main__":
     mcp.run()

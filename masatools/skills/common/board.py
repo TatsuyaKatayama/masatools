@@ -226,3 +226,33 @@ async def get_thread_history(thread_id: str = None) -> str:
             return "\n".join(lines)
         except Exception as e:
             return f"Error fetching history: {e}"
+
+async def get_my_profile() -> str:
+    """
+    Retrieves the current agent's profile, including role and mission.
+    """
+    context = get_default_context()
+    url = f"{context.api_url}/api/v1/agents/{context.agent_id}"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return f"Error: Failed to fetch profile. Status: {response.status_code}"
+            
+            data = response.json()
+            agent = data.get("agent", {})
+            team_mission = data.get("team_mission")
+            
+            lines = [
+                f"Agent ID: {agent.get('id')}",
+                f"Name: {agent.get('name')}",
+                f"System Role: {agent.get('role')}",
+                f"Your Contribution Mission: {agent.get('mission') or 'Not assigned'}",
+            ]
+            if team_mission:
+                lines.append(f"Team Mission: {team_mission}")
+                
+            return "\n".join(lines)
+        except Exception as e:
+            return f"Error fetching profile: {e}"

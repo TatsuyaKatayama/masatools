@@ -52,6 +52,30 @@ async def test_post_response_with_message():
         assert "output_dir" not in kwargs["payload"]
 
 @pytest.mark.asyncio
+async def test_get_my_profile():
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "agent": {
+                    "id": "agent-123",
+                    "name": "Test Agent",
+                    "role": "worker",
+                    "mission": "Be efficient"
+                },
+                "team_mission": "Save the world"
+            }
+        )
+        
+        from masatools.skills.common.board import get_my_profile
+        result = await get_my_profile()
+        
+        assert "Agent ID: agent-123" in result
+        assert "System Role: worker" in result
+        assert "Your Contribution Mission: Be efficient" in result
+        assert "Team Mission: Save the world" in result
+
+@pytest.mark.asyncio
 async def test_create_thread_success():
     tid = str(ULID())
     mock_response = MagicMock()
