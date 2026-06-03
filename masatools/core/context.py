@@ -9,7 +9,7 @@ class AgentContext:
     api_url: str
     nats_jwt: Optional[str] = None
     nats_nkey: Optional[str] = None
-    s3_endpoint: str = "http://localhost:9000"
+    s3_endpoint: str = "http://localhost/s3"
     s3_bucket: str = "ma-system"
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
@@ -24,10 +24,10 @@ def get_default_context() -> AgentContext:
         _default_context = AgentContext(
             agent_id=os.getenv("AGENT_ID", "unknown-agent"),
             nats_url=os.getenv("NATS_URL", "nats://localhost:4222"),
-            api_url=os.getenv("API_URL", "http://localhost:8080"),
+            api_url=os.getenv("API_URL", "http://localhost/api/v1"),
             nats_jwt=os.getenv("NATS_JWT"),
             nats_nkey=os.getenv("NATS_NKEY"),
-            s3_endpoint=os.getenv("S3_ENDPOINT", "http://localhost:9000"),
+            s3_endpoint=os.getenv("S3_ENDPOINT", "http://localhost/s3"),
             s3_bucket=os.getenv("S3_BUCKET", "ma-system"),
             s3_access_key=os.getenv("S3_ACCESS_KEY") or os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
             s3_secret_key=os.getenv("S3_SECRET_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),

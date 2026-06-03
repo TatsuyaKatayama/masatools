@@ -10,7 +10,7 @@ async def create_thread(command: str, deadline: str, to: List[str] = [], observe
     Creates a new thread via the masabbs REST API.
     """
     context = get_default_context()
-    url = f"{context.api_url}/api/v1/threads"
+    url = f"{context.api_url}/threads"
     
     payload = {
         "command": command,
@@ -190,7 +190,7 @@ async def get_thread_history(thread_id: str = None) -> str:
     if not tid:
         return "Error: No active thread_id found in context."
 
-    url = f"{context.api_url}/api/v1/threads/{tid}/tasks"
+    url = f"{context.api_url}/threads/{tid}/tasks"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url)
@@ -232,7 +232,7 @@ async def get_my_profile() -> str:
     Retrieves the current agent's profile, including role and mission.
     """
     context = get_default_context()
-    url = f"{context.api_url}/api/v1/agents/{context.agent_id}"
+    url = f"{context.api_url}/agents/{context.agent_id}"
     
     async with httpx.AsyncClient() as client:
         try:
@@ -268,7 +268,7 @@ async def get_team_blueprint(team_id: Optional[str] = None) -> str:
     if not team_id:
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(f"{context.api_url}/api/v1/agents/{context.agent_id}")
+                resp = await client.get(f"{context.api_url}/agents/{context.agent_id}")
                 if resp.status_code == 200:
                     team_id = resp.json().get("agent", {}).get("team_id")
             except Exception:
@@ -277,7 +277,7 @@ async def get_team_blueprint(team_id: Optional[str] = None) -> str:
     if not team_id:
         return "Error: team_id could not be determined. Please provide it explicitly."
 
-    url = f"{context.api_url}/api/v1/teams/{team_id}/blueprint"
+    url = f"{context.api_url}/teams/{team_id}/blueprint"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url)
@@ -309,7 +309,7 @@ async def get_network() -> str:
     Shows who are 'leaders', 'subordinates', or 'coworkers' from the current agent's perspective.
     """
     context = get_default_context()
-    url = f"{context.api_url}/api/v1/agents/{context.agent_id}/network"
+    url = f"{context.api_url}/agents/{context.agent_id}/network"
     
     async with httpx.AsyncClient() as client:
         try:

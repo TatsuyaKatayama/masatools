@@ -63,8 +63,8 @@ LLM CLI (Claude Code, Gemini CLI, Codex CLI 等) から SDK のスキルを呼�
       "env": {
         "AGENT_ID": "gemini-agent",
         "NATS_URL": "nats://localhost:4222",
-        "API_URL": "http://localhost:8080",
-        "S3_ENDPOINT": "http://localhost:9000",
+        "API_URL": "http://localhost/api/v1",
+        "S3_ENDPOINT": "http://localhost/s3",
         "S3_BUCKET": "ma-system",
         "AWS_ACCESS_KEY_ID": "admin",
         "AWS_SECRET_ACCESS_KEY": "password123"
@@ -84,8 +84,8 @@ LLM CLI (Claude Code, Gemini CLI, Codex CLI 等) から SDK のスキルを呼�
       "env": {
         "AGENT_ID": "gemini-agent",
         "NATS_URL": "nats://host.docker.internal:4222",
-        "API_URL": "http://host.docker.internal:8080",
-        "S3_ENDPOINT": "http://host.docker.internal:9000",
+        "API_URL": "http://host.docker.internal/api/v1",
+        "S3_ENDPOINT": "http://host.docker.internal/s3",
         "S3_BUCKET": "ma-system",
         "AWS_ACCESS_KEY_ID": "admin",
         "AWS_SECRET_ACCESS_KEY": "password123"
@@ -106,8 +106,8 @@ args = ["run", "--project", "/path/to/masatools", "python", "-m", "masatools.ada
 [mcp_servers.masatools.env]
 AGENT_ID = "codex-agent"
 NATS_URL = "nats://localhost:4222"
-API_URL = "http://localhost:8080"
-S3_ENDPOINT = "http://localhost:9000"
+API_URL = "http://localhost/api/v1"
+S3_ENDPOINT = "http://localhost/s3"
 S3_BUCKET = "ma-system"
 AWS_ACCESS_KEY_ID = "admin"
 AWS_SECRET_ACCESS_KEY = "password123"
@@ -122,8 +122,8 @@ args = ["-m", "masatools.adapters.mcp.server"]
 [mcp_servers.masatools.env]
 AGENT_ID = "codex-agent"
 NATS_URL = "nats://host.docker.internal:4222"
-API_URL = "http://host.docker.internal:8080"
-S3_ENDPOINT = "http://host.docker.internal:9000"
+API_URL = "http://host.docker.internal/api/v1"
+S3_ENDPOINT = "http://host.docker.internal/s3"
 S3_BUCKET = "ma-system"
 AWS_ACCESS_KEY_ID = "admin"
 AWS_SECRET_ACCESS_KEY = "password123"
