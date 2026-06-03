@@ -76,6 +76,51 @@ async def test_get_my_profile():
         assert "Team Mission: Save the world" in result
 
 @pytest.mark.asyncio
+async def test_get_team_blueprint():
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "team_id": "team-123",
+                "structure_mermaid": "graph TD\n  A --> B",
+                "members": [
+                    {"id": "agent-a", "name": "Agent A", "role": "manager", "mission": "Lead"},
+                    {"id": "agent-b", "name": "Agent B", "role": "worker", "mission": "Work"}
+                ]
+            }
+        )
+        
+        from masatools.skills.common.board import get_team_blueprint
+        result = await get_team_blueprint("team-123")
+        
+        assert "Team ID: team-123" in result
+        assert "graph TD" in result
+        assert "Agent A (manager)" in result
+        assert "Agent B (worker)" in result
+
+@pytest.mark.asyncio
+async def test_get_network():
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: [
+                {
+                    "agent_id": "boss-agent",
+                    "relation": {"type": "leader", "category": "vertical"},
+                    "status": "online",
+                    "mission": "Direct everything"
+                }
+            ]
+        )
+        
+        from masatools.skills.common.board import get_network
+        result = await get_network()
+        
+        assert "Your Local Network:" in result
+        assert "boss-agent (leader/vertical)" in result
+        assert "Status: online" in result
+
+@pytest.mark.asyncio
 async def test_create_thread_success():
     tid = str(ULID())
     mock_response = MagicMock()

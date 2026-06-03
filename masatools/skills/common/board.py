@@ -256,3 +256,82 @@ async def get_my_profile() -> str:
             return "\n".join(lines)
         except Exception as e:
             return f"Error fetching profile: {e}"
+
+async def get_team_blueprint(team_id: Optional[str] = None) -> str:
+    """
+    Retrieves the team's organization structure as a Mermaid diagram and member list.
+    If team_id is not provided, it uses the current agent's team.
+    """
+    context = get_default_context()
+    
+    # If team_id is not provided, we need to get it from our profile first
+    if not team_id:
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.get(f"{context.api_url}/api/v1/agents/{context.agent_id}")
+                if resp.status_code == 200:
+                    team_id = resp.json().get("agent", {}).get("team_id")
+            except Exception:
+                pass
+    
+    if not team_id:
+        return "Error: team_id could not be determined. Please provide it explicitly."
+
+    url = f"{context.api_url}/api/v1/teams/{team_id}/blueprint"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return f"Error: Failed to fetch blueprint. Status: {response.status_code}"
+            
+            data = response.json()
+            mermaid = data.get("structure_mermaid", "No diagram available")
+            members = data.get("members", [])
+            
+            lines = [
+                f"Team ID: {team_id}",
+                "Structure (Mermaid):",
+                "```mermaid",
+                mermaid,
+                "```",
+                "\nMembers:",
+            ]
+            for m in members:
+                lines.append(f"- {m.get('id')}: {m.get('name')} ({m.get('role')}) - Mission: {m.get('mission') or 'None'}")
+                
+            return "\n".join(lines)
+        except Exception as e:
+            return f"Error fetching team blueprint: {e}"
+
+async def get_network() -> str:
+    """
+    Retrieves the local network of agents related to the current agent.
+    Shows who are 'leaders', 'subordinates', or 'coworkers' from the current agent's perspective.
+    """
+    context = get_default_context()
+    url = f"{context.api_url}/api/v1/agents/{context.agent_id}/network"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return f"Error: Failed to fetch network. Status: {response.status_code}"
+            
+            members = response.json()
+            if not members:
+                return "Your network is currently empty (no direct relations found)."
+            
+            lines = ["Your Local Network:"]
+            for m in members:
+                agent_id = m.get("agent_id")
+                relation = m.get("relation", {})
+                rel_type = relation.get("type", "unknown")
+                rel_cat = relation.get("category", "unknown")
+                status = m.get("status", "unknown")
+                mission = m.get("mission", "No mission")
+                
+                lines.append(f"- {agent_id} ({rel_type}/{rel_cat}): Status: {status}, Mission: {mission}")
+                
+            return "\n".join(lines)
+        except Exception as e:
+            return f"Error fetching network: {e}"

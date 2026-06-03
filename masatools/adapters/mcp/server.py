@@ -16,9 +16,13 @@ nats_logger.disabled = True
 nats_logger.propagate = False
 
 from mcp.server.fastmcp import FastMCP
-from masatools.skills.common.board import check_board, post_response, update_status, create_thread, send_offer, send_assign, get_thread_history
+from masatools.skills.common.board import (
+    check_board, post_response, update_status, create_thread, 
+    send_offer, send_assign, get_thread_history,
+    get_team_blueprint, get_network, get_my_profile
+)
 from masatools.skills.common.storage import sync_from_s3, sync_to_s3
-from typing import List
+from typing import List, Optional
 import asyncio
 
 # Create the MCP server
@@ -171,8 +175,22 @@ async def get_my_profile_tool() -> str:
     Retrieves the profile of the current agent, including its role and mission.
     This helps the agent understand its purpose and contribution to the team.
     """
-    from ...skills.common.board import get_my_profile
     return await safe_tool_call(get_my_profile())
+
+@mcp.tool()
+async def get_team_blueprint_tool(team_id: Optional[str] = None) -> str:
+    """
+    Retrieves the full team architecture (Mermaid diagram and member list).
+    """
+    return await safe_tool_call(get_team_blueprint(team_id))
+
+@mcp.tool()
+async def get_network_tool() -> str:
+    """
+    Retrieves the local agent network relative to this agent.
+    Shows leaders, subordinates, and coworkers.
+    """
+    return await safe_tool_call(get_network())
 
 if __name__ == "__main__":
     mcp.run()
