@@ -11,7 +11,7 @@ import masatools.core
 
 # パスの設定
 BBS_DIR = os.getenv("MASABBS_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..", "masabbs")))
-API_URL = "http://localhost:8080"
+API_URL = "http://localhost:8080/api/v1"
 NATS_URL = "nats://localhost:4222"
 
 @pytest.fixture(scope="module", autouse=True)
@@ -22,7 +22,7 @@ def masabbs_services():
     
     # DBの起動待ち
     print("[Setup] Waiting for database to be ready...")
-    time.sleep(10)
+    time.sleep(20)
     
     # テストデータの投入
     print("[Setup] Seeding database...")
@@ -60,9 +60,10 @@ def masabbs_services():
     print("[Setup] Waiting for API health check...")
     max_retries = 60
     ready = False
+    BASE_URL = API_URL.replace("/api/v1", "")
     for i in range(max_retries):
         try:
-            resp = httpx.get(f"{API_URL}/health")
+            resp = httpx.get(f"{BASE_URL}/health")
             if resp.status_code == 200:
                 print(f"[Setup] Server is ready after {i} seconds.")
                 ready = True
@@ -118,7 +119,7 @@ async def test_masabbs_integration_workflow():
         for _ in range(20): # 20秒に延長
             await asyncio.sleep(1)
             try:
-                resp = await client.get(f"{API_URL}/api/v1/tasks")
+                resp = await client.get(f"{API_URL}/tasks")
                 tasks = resp.json()
                 if tasks and any(t["type"] == "task" and t.get("thread_id") == thread_id for t in tasks):
                     break
@@ -150,7 +151,7 @@ async def test_masabbs_integration_workflow():
 
     # サーバー側の確認
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{API_URL}/api/v1/tasks")
+        resp = await client.get(f"{API_URL}/tasks")
         tasks = resp.json()
         assert any(t["type"] == "offer" and t["from"] == "worker-1" and t["thread_id"] == thread_id for t in tasks)
 
@@ -180,7 +181,7 @@ async def test_masabbs_integration_workflow():
     expected_types = ["task", "offer", "assign", "status", "result"]
     async with httpx.AsyncClient() as client:
         for _ in range(10):
-            resp = await client.get(f"{API_URL}/api/v1/tasks")
+            resp = await client.get(f"{API_URL}/tasks")
             tasks = resp.json()
             msg_types = [t["type"] for t in tasks if t["thread_id"] == thread_id]
             if all(t in msg_types for t in expected_types):
