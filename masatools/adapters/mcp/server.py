@@ -52,13 +52,14 @@ async def check_connectivity_tool() -> str:
 
     # API check
     try:
-        logger.info(f"Checking API connectivity to {context.api_url}")
-        async with httpx.AsyncClient(timeout=1.0) as client:
-            resp = await client.get(f"{context.api_url}/health")
+        api_health_url = f"{context.api_url.rstrip('/')}/health"
+        logger.info(f"Checking API connectivity to {api_health_url}")
+        async with httpx.AsyncClient(timeout=2.0, follow_redirects=True) as client:
+            resp = await client.get(api_health_url)
             if resp.status_code == 200:
-                results.append(f"✅ API: Healthy at {context.api_url}")
+                results.append(f"✅ API: Healthy at {api_health_url}")
             else:
-                results.append(f"❌ API: Reached but returned status {resp.status_code} at {context.api_url}")
+                results.append(f"❌ API: Reached but returned status {resp.status_code} at {api_health_url}")
     except Exception as e:
         results.append(f"❌ API: Failed to reach {context.api_url} ({e})")
 

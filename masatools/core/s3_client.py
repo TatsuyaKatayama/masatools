@@ -11,7 +11,10 @@ class S3Client:
             endpoint_url=self.context.s3_endpoint,
             aws_access_key_id=self.context.s3_access_key,
             aws_secret_access_key=self.context.s3_secret_key,
-            config=Config(signature_version='s3v4'),
+            config=Config(
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'}
+            ),
             region_name='us-east-1' # Default for MinIO
         )
 
