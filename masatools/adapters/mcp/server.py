@@ -19,7 +19,7 @@ from mcp.server.fastmcp import FastMCP
 from masatools.skills.common.board import (
     check_board, post_response, update_status, create_thread, 
     send_offer, send_assign, get_thread_history,
-    get_team_blueprint, get_network, get_my_profile
+    get_team_blueprint, get_network, get_my_profile, register_agent
 )
 from masatools.skills.common.storage import sync_from_s3, sync_to_s3
 from typing import List, Optional
@@ -27,6 +27,14 @@ import asyncio
 
 # Create the MCP server
 mcp = FastMCP("bbs-mcp")
+
+@mcp.tool()
+async def register_agent_tool(name: str, role: str, mission: str = None, team_id: str = None) -> str:
+    """
+    Registers this agent with the masabbs server so it appears in the Admin UI.
+    'role' should be one of: 'manager', 'worker', 'observer'.
+    """
+    return await safe_tool_call(register_agent(name, role, mission, team_id))
 
 @mcp.tool()
 async def check_connectivity_tool() -> str:

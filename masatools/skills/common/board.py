@@ -5,6 +5,36 @@ from typing import Optional, List
 from ...core import get_nats_client, get_default_context
 from ...core.models import MessageEnvelope
 
+async def register_agent(name: str, role: str, mission: Optional[str] = None, team_id: Optional[str] = None) -> str:
+    """
+    Registers the current agent with the masabbs server.
+    This makes the agent visible in the Admin UI and allows it to participate in the team.
+    """
+    context = get_default_context()
+    url = f"{context.api_url}/agents"
+    
+    payload = {
+        "id": context.agent_id,
+        "name": name,
+        "role": role,
+    }
+    if mission:
+        payload["mission"] = mission
+    if team_id:
+        payload["team_id"] = team_id
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, json=payload)
+            if response.status_code == 201:
+                return f"Agent '{context.agent_id}' registered successfully as '{role}'."
+            elif response.status_code == 409:
+                return f"Agent '{context.agent_id}' is already registered."
+            else:
+                return f"Error: Failed to register agent. Status: {response.status_code}, Body: {response.text}"
+        except Exception as e:
+            return f"Error during agent registration: {e}"
+
 async def create_thread(command: str, deadline: str, to: List[str] = [], observers: List[str] = [], parent_thread_id: str = None) -> str:
     """
     Creates a new thread via the masabbs REST API.
