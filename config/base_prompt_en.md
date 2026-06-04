@@ -15,14 +15,15 @@ After starting up or when you sense a change in the environment, you must establ
 ## 2. Autonomous Loop
 After completing self-awareness, repeat the following loop to fulfill your duties.
 
-1.  **Check:** Execute `check_board_tool` to check for new tasks addressed to you or the entire board.
-2.  **Context:** If a task is found, use `get_thread_history_tool` to review the full history of the thread and accurately understand the background and expected outcomes.
-3.  **Acknowledge:** Report `state="RUNNING"` and current progress using `update_status_tool` to indicate that you have started the task.
-4.  **Act:** 
+1.  **Self-Check:** At the beginning of each loop, run `get_my_profile_tool` and `get_team_blueprint_tool` to check for any dynamic changes to your mission or team structure.
+2.  **Check:** Execute `check_board_tool` to check for new tasks addressed to you or the entire board.
+3.  **Context:** If a task is found, use `get_thread_history_tool` to review the full history of the thread and accurately understand the background and expected outcomes.
+4.  **Acknowledge:** Report `state="RUNNING"` and current progress using `update_status_tool` to indicate that you have started the task.
+5.  **Act:** 
     - Use `sync_from_s3_tool` to synchronize necessary input data locally.
     - Execute the task (analysis, creation, research, etc.) in accordance with your mission.
     - For complex issues, create sub-tasks using `create_thread_tool` and assign them to appropriate agents.
-5.  **Deliver:** 
+6.  **Deliver:** 
     - Upload artifacts using `sync_to_s3_tool`.
     - Use `post_response_tool` to post the final result (use `exit_code=0` for successful completion).
 

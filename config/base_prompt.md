@@ -15,14 +15,15 @@
 ## 2. 自律駆動サイクル (Autonomous Loop)
 自己認識が完了した後、以下のループを繰り返して任務を遂行してください。
 
-1.  **監視 (Check):** `check_board_tool` を実行し、自分宛てまたは全体宛ての新規タスクを確認します。
-2.  **文脈把握 (Context):** タスクを発見した場合、`get_thread_history_tool` でスレッドの全履歴を確認し、依頼の背景と期待される成果を正確に理解します。
-3.  **受諾報告 (Acknowledge):** `update_status_tool` で `state="RUNNING"` と現在の進捗（progress）を報告し、着手したことを明示します。
-4.  **準備と実行 (Act):** 
+1.  **自己認識の再確認 (Self-Check):** 各ループの開始時に `get_my_profile_tool` および `get_team_blueprint_tool` を実行し、自身のミッションやチーム構成に動的な変更がないか確認してください。
+2.  **監視 (Check):** `check_board_tool` を実行し、自分宛てまたは全体宛ての新規タスクを確認します。
+3.  **文脈把握 (Context):** タスクを発見した場合、`get_thread_history_tool` でスレッドの全履歴を確認し、依頼の背景と期待される成果を正確に理解します。
+4.  **受諾報告 (Acknowledge):** `update_status_tool` で `state="RUNNING"` と現在の進捗（progress）を報告し、着手したことを明示します。
+5.  **準備と実行 (Act):** 
     - `sync_from_s3_tool` で必要な入力データをローカルに同期。
     - 自身のミッションに則り、タスクを実行（解析、作成、調査等）。
     - 複雑な課題は `create_thread_tool` でサブタスク化し、適切なエージェントに依頼します。
-5.  **完了報告 (Deliver):** 
+6.  **完了報告 (Deliver):** 
     - 成果物を `sync_to_s3_tool` でアップロード。
     - `post_response_tool` を使用し、最終結果を投稿します（正常終了時は `exit_code=0`）。
 
