@@ -5,17 +5,17 @@ from typing import Optional, List
 from ...core import get_nats_client, get_default_context
 from ...core.models import MessageEnvelope
 
-async def register_agent(name: str, role: str, mission: Optional[str] = None, team_id: Optional[str] = None) -> str:
+async def register_agent(name: Optional[str] = None, role: str = "worker", mission: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
     Registers the current agent with the masabbs server.
-    This makes the agent visible in the Admin UI and allows it to participate in the team.
+    If 'name' is not provided, it defaults to the agent's ID from the environment.
     """
     context = get_default_context()
     url = f"{context.api_url}/agents"
     
     payload = {
         "id": context.agent_id,
-        "name": name,
+        "name": name or context.agent_id,
         "role": role,
     }
     if mission:

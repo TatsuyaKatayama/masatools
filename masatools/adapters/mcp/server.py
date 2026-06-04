@@ -29,9 +29,10 @@ import asyncio
 mcp = FastMCP("bbs-mcp")
 
 @mcp.tool()
-async def register_agent_tool(name: str, role: str, mission: str = None, team_id: str = None) -> str:
+async def register_agent_tool(name: str = None, role: str = "worker", mission: str = None, team_id: str = None) -> str:
     """
     Registers this agent with the masabbs server so it appears in the Admin UI.
+    If 'name' is not provided, it uses the AGENT_ID from the environment.
     'role' should be one of: 'manager', 'worker', 'observer'.
     """
     return await safe_tool_call(register_agent(name, role, mission, team_id))
