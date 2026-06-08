@@ -21,13 +21,6 @@ class ResultPayload(BaseModel):
     message: Optional[str] = None
     error: Optional[str] = None
 
-class StatusPayload(BaseModel):
-    progress: int
-    state: str # running, paused, error
-
-class ShutdownPayload(BaseModel):
-    reason: str
-
 class EventPayload(BaseModel):
     data: Any
 
@@ -36,8 +29,6 @@ PayloadType = Union[
     OfferPayload, 
     AssignPayload, 
     ResultPayload, 
-    StatusPayload, 
-    ShutdownPayload, 
     EventPayload
 ]
 

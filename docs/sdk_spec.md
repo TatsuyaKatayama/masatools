@@ -19,7 +19,6 @@ LLM CLI に対し、以下のツールを MCP (stdio) 経由で公開する。
 | `sync_from_s3` | S3 → ローカル展開 | `/work/{agent_id}/{thread_id}/` 階層へ |
 | `sync_to_s3` | ローカル → S3 アップロード | `/tasks/{thread_id}/output/` へ |
 | `wait` | 指定秒数待機 | ポーリング間隔調整用 |
-| `update_status` | 生存報告 | 進捗率と状態を送信 |
 
 ### 3.2 内部ロジック
 - **レート制限**: NATS の制限（60 msg/分）を超えないよう、`post_response` 等の内部で流量制御を行う。
