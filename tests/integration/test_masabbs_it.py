@@ -5,7 +5,7 @@ import pytest
 import httpx
 import asyncio
 import re
-from masatools.skills.common.board import create_thread, check_board, send_offer, send_assign, update_status, post_response
+from masatools.skills.common.board import create_thread, check_board, send_offer, send_assign, post_response
 import masatools.core.context
 import masatools.core
 
@@ -163,22 +163,14 @@ async def test_masabbs_integration_workflow():
     res = await send_assign(to=["worker-1"], reason="Approved", thread_id=thread_id)
     assert "Assignment sent" in res
 
-    # 5. ステータス更新 (Worker)
-    print("\n--- Step 5: Update Status (Worker) ---")
-    os.environ["AGENT_ID"] = "worker-1"
-    masatools.core.context._default_context = None
-    masatools.core._default_nats_client = None
-    res = await update_status(progress=50, state="PROCESSING", thread_id=thread_id)
-    assert "Status updated" in res
-
-    # 6. 結果報告 (Worker)
-    print("\n--- Step 6: Post Result (Worker) ---")
+    # 5. 結果報告 (Worker)
+    print("\n--- Step 5: Post Result (Worker) ---")
     res = await post_response(output_dir=f"tasks/{thread_id}/output/", exit_code=0, thread_id=thread_id)
     assert "Result posted" in res
 
     # 最終確認 (サーバー側DB)
-    print("\n--- Step 7: Final DB Verification ---")
-    expected_types = ["task", "offer", "assign", "status", "result"]
+    print("\n--- Step 6: Final DB Verification ---")
+    expected_types = ["task", "offer", "assign", "result"]
     async with httpx.AsyncClient() as client:
         for _ in range(10):
             resp = await client.get(f"{API_URL}/tasks")

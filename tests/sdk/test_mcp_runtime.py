@@ -1,100 +1,86 @@
-import asyncio
 import pytest
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-import os
 
-# サーバーの起動設定
-# masatoolsパッケージをインストール済みの前提で、モジュールとして実行
-server_params = StdioServerParameters(
-    command="python",
-    args=["-m", "masatools.adapters.mcp.server"],
-    env=os.environ.copy()
-)
+from mcp.shared.memory import create_connected_server_and_client_session
+
+from masatools.adapters.mcp.server import mcp
+from masatools.core.context import AgentContext
 
 @pytest.mark.asyncio
 async def test_mcp_server_connection_and_tools():
     """
     IT-MCP-006: MCP サーバーの正常起動とツール公開のテスト
     """
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            # 1. 初期化 (JSON-RPC handshake)
-            await session.initialize()
-            
-            # 2. ツール一覧の取得
-            tools_result = await session.list_tools()
-            tools = tools_result.tools
-            tool_names = [t.name for t in tools]
-            
-            # 期待されるツールが含まれているか確認
-            expected_tools = [
-                "check_board_tool", 
-                "post_response_tool", 
-                "update_status_tool", 
-                "create_thread_tool",
-                "sync_from_s3_tool",
-                "sync_to_s3_tool",
-                "check_connectivity_tool"
-            ]
-            for ext in expected_tools:
-                assert ext in tool_names, f"Tool {ext} not found in MCP server"
+    async with create_connected_server_and_client_session(mcp) as session:
+        tools_result = await session.list_tools()
+        tools = tools_result.tools
+        tool_names = [t.name for t in tools]
+
+        expected_tools = [
+            "check_board_tool",
+            "post_response_tool",
+            "create_thread_tool",
+            "sync_from_s3_tool",
+            "sync_to_s3_tool",
+            "check_connectivity_tool",
+        ]
+        for ext in expected_tools:
+            assert ext in tool_names, f"Tool {ext} not found in MCP server"
+
+        assert "update_status_tool" not in tool_names
 
 @pytest.mark.asyncio
-async def test_mcp_check_connectivity_tool():
+async def test_mcp_check_connectivity_tool(monkeypatch):
     """
     IT-MCP-008: check_connectivity_tool の動作確認 (接続エラー時)
     """
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            
-            # モックなしで実行すると、NATS/API/S3 全てで失敗のテキストが返ってくるはず
-            # しかし、プロセスはクラッシュせず、正常な JSON-RPC レスポンスが返ることを検証
-            result = await session.call_tool("check_connectivity_tool", arguments={})
-            content = str(result.content)
-            print(f"Connectivity check output: {content}")
-            
-            # 結果に各項目の診断が含まれていることを確認（成功か失敗かは環境に依存するため問わない）
-            assert "NATS" in content
-            assert "API" in content
-            assert "S3" in content
-            # プロセスが生きていればOK
+    import httpx
+    import masatools.core
+
+    async def fail_nats_client(**_kwargs):
+        raise TimeoutError("NATS unavailable")
+
+    class FailingS3:
+        class Client:
+            def list_buckets(self):
+                raise TimeoutError("S3 unavailable")
+
+        s3 = Client()
+
+    async def fail_get(*_args, **_kwargs):
+        raise httpx.ConnectError("API unavailable")
+
+    monkeypatch.setattr(
+        masatools.core,
+        "get_default_context",
+        lambda: AgentContext(
+            agent_id="test-agent",
+            nats_url="nats://test.invalid:4222",
+            api_url="http://test.invalid/api/v1",
+            s3_endpoint="http://test.invalid/s3",
+        ),
+    )
+    monkeypatch.setattr(masatools.core, "get_nats_client", fail_nats_client)
+    monkeypatch.setattr(masatools.core, "get_s3_client", lambda: FailingS3())
+    monkeypatch.setattr(httpx.AsyncClient, "get", fail_get)
+
+    async with create_connected_server_and_client_session(mcp) as session:
+        result = await session.call_tool("check_connectivity_tool", arguments={})
+        content = str(result.content)
+        print(f"Connectivity check output: {content}")
+
+        assert "NATS" in content
+        assert "API" in content
+        assert "S3" in content
 
 @pytest.mark.asyncio
 async def test_mcp_tool_execution_logic_mcp_level():
     """
     IT-MCP-007: プロトコルレベルのツール実行テスト
     """
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            
-            # 異常系: 存在しないツール名での呼び出し
-            # FastMCP内部ではToolErrorが出るが、stdio通信経由でどう見えるかを確認
-            print("\n--- Testing non-existent tool ---")
-            try:
-                await session.call_tool("non_existent_tool", arguments={})
-                print("Warning: Call succeeded for non-existent tool (unexpected)")
-            except Exception as e:
-                print(f"Captured error for non-existent tool: {type(e).__name__}: {str(e)}")
-
-            # 異常系: 必須引数欠落
-            print("\n--- Testing missing required argument ---")
-            try:
-                await session.call_tool("update_status_tool", arguments={"state": "RUNNING"})
-                print("Warning: Call succeeded for missing argument (unexpected)")
-            except Exception as e:
-                print(f"Captured error for missing argument: {type(e).__name__}: {str(e)}")
-
-            # 正常系: 全ての必須引数を揃えた場合
-            print("\n--- Testing normal call (should reach SDK) ---")
-            try:
-                result = await session.call_tool("update_status_tool", arguments={"progress": 50, "state": "RUNNING"})
-                print(f"Tool execution response content: {result.content}")
-                # SDKの戻り値（例: NATS接続エラー文字列）が含まれているか確認
-                assert any("Error" in str(c) or "Status" in str(c) for c in result.content) or result.content
-            except Exception as e:
-                print(f"Unexpected error in normal call: {type(e).__name__}: {e}")
-                # ここで落ちる場合はプロトコルスタックの異常
-                raise e
+    async with create_connected_server_and_client_session(mcp) as session:
+        print("\n--- Testing non-existent tool ---")
+        try:
+            await session.call_tool("non_existent_tool", arguments={})
+            print("Warning: Call succeeded for non-existent tool (unexpected)")
+        except Exception as e:
+            print(f"Captured error for non-existent tool: {type(e).__name__}: {str(e)}")

@@ -13,7 +13,10 @@ class S3Client:
             aws_secret_access_key=self.context.s3_secret_key,
             config=Config(
                 signature_version='s3v4',
-                s3={'addressing_style': 'path'}
+                s3={'addressing_style': 'path'},
+                connect_timeout=1,
+                read_timeout=1,
+                retries={'max_attempts': 0}
             ),
             region_name='us-east-1' # Default for MinIO
         )

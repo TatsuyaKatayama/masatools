@@ -17,7 +17,7 @@ nats_logger.propagate = False
 
 from mcp.server.fastmcp import FastMCP
 from masatools.skills.common.board import (
-    check_board, post_response, update_status, create_thread, 
+    check_board, post_response, create_thread,
     send_offer, send_assign, get_thread_history,
     get_team_blueprint, get_network, get_my_profile, register_agent
 )
@@ -165,13 +165,6 @@ async def sync_to_s3_tool(thread_id: str, local_file_path: str) -> str:
         return f"Error: {e}"
 
 @mcp.tool()
-async def update_status_tool(progress: int, state: str, message: str = None, thread_id: str = None) -> str:
-    """
-    Reports progress and current state (e.g., 'RUNNING', 'PAUSED') to the board.
-    """
-    return await safe_tool_call(update_status(progress, state, message, thread_id))
-
-@mcp.tool()
 async def get_thread_history_tool(thread_id: str = None) -> str:
     """
     Retrieves the conversation history for a specific thread.
@@ -203,4 +196,4 @@ async def get_network_tool() -> str:
     return await safe_tool_call(get_network())
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="stdio")

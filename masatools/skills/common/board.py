@@ -123,34 +123,6 @@ async def send_offer(eta_seconds: int, confidence: float, thread_id: str = None)
     
     return f"Offer sent for thread {tid}"
 
-async def update_status(progress: int, state: str, message: Optional[str] = None, thread_id: str = None) -> str:
-    """
-    Sends a status report (heartbeat/progress).
-    """
-    client = await get_nats_client()
-    context = get_default_context()
-    
-    tid = thread_id or context.current_thread_id
-    if not tid:
-        return "Error: No active thread_id found in context."
-    
-    payload = {
-        "progress": progress,
-        "state": state,
-    }
-    if message:
-        payload["message"] = message
-        
-    subject = f"board.status.{context.agent_id}"
-    await client.publish(
-        subject=subject,
-        message_type="status",
-        payload=payload,
-        thread_id=tid
-    )
-    
-    return f"Status updated: {state} ({progress}%)"
-
 async def send_assign(to: List[str], reason: Optional[str] = None, thread_id: str = None) -> str:
     """
     Assigns a task to specific agents.
@@ -240,8 +212,6 @@ async def get_thread_history(thread_id: str = None) -> str:
                 content = ""
                 if msg_type == "task":
                     content = payload.get("command", "")
-                elif msg_type == "status":
-                    content = f"[{payload.get('state')}] {payload.get('message', '')}"
                 elif msg_type == "result":
                     content = f"COMPLETED (Exit: {payload.get('exit_code')})"
                     if payload.get("message"):
