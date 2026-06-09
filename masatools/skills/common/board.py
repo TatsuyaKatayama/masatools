@@ -258,6 +258,41 @@ async def post_response(output_dir: Optional[str] = None, exit_code: int = 0, me
     
     return f"Result posted to {subject} (exit_code: {exit_code})"
 
+async def post_message(message: str, thread_id: str = None, output_dir: Optional[str] = None, error: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Posts a conversation message to the current thread.
+    Internally it is published as a result message for compatibility.
+    """
+    if message is None or not message.strip():
+        return "Error: message is required."
+
+    client = await get_nats_client()
+    context = get_default_context()
+
+    tid = thread_id or context.current_thread_id
+    if not tid:
+        return "Error: No active thread_id found in context."
+
+    payload: Dict[str, Any] = {
+        "message": message.strip(),
+    }
+    if output_dir:
+        payload["output_dir"] = output_dir
+    if error:
+        payload["error"] = error
+    if metadata:
+        payload["metadata"] = metadata
+
+    subject = f"board.result.{tid}"
+    await client.publish(
+        subject=subject,
+        message_type="result",
+        payload=payload,
+        thread_id=tid
+    )
+
+    return f"Message posted to {subject}"
+
 async def get_thread_history(thread_id: str = None) -> str:
     """
     Fetches the message history for a specific thread.

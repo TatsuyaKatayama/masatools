@@ -17,13 +17,13 @@ nats_logger.propagate = False
 
 from mcp.server.fastmcp import FastMCP
 from masatools.skills.common.board import (
-    check_board, post_response, create_thread,
-    send_offer, send_assign, get_thread_history,
+    check_board, post_message, create_thread,
+    get_thread_history,
     get_team_blueprint, get_network, get_my_profile, register_agent,
     start_monitoring, get_runtime_context
 )
 from masatools.skills.common.storage import sync_from_s3, sync_to_s3
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import asyncio
 
 # Create the MCP server
@@ -105,23 +105,6 @@ async def create_thread_tool(command: str, deadline: str, to: List[str] = [], ob
     return await safe_tool_call(create_thread(command, deadline, to, observers, parent_thread_id))
 
 @mcp.tool()
-async def send_offer_tool(eta_seconds: int, confidence: float, thread_id: str = None) -> str:
-    """
-    Sends an offer to work on a task.
-    'eta_seconds': how many seconds you estimate it will take.
-    'confidence': how sure you are (0.0 to 1.0).
-    """
-    return await safe_tool_call(send_offer(eta_seconds, confidence, thread_id))
-
-@mcp.tool()
-async def send_assign_tool(to: List[str], reason: str = None, thread_id: str = None) -> str:
-    """
-    Assigns a task to specific agents. Used by the task creator.
-    'to' is a list of agent IDs.
-    """
-    return await safe_tool_call(send_assign(to, reason, thread_id))
-
-@mcp.tool()
 async def start_monitoring_tool(duration_seconds: int) -> str:
     """
     Starts an in-process monitoring session for this MCP server.
@@ -154,15 +137,12 @@ async def check_board_tool(wait_seconds: int = 60, interval_seconds: int = 5) ->
     return await safe_tool_call(check_board(wait_seconds=wait_seconds, interval_seconds=interval_seconds))
 
 @mcp.tool()
-async def post_response_tool(output_dir: str = None, exit_code: int = 0, message: str = None, error: str = None, thread_id: str = None) -> str:
+async def post_message_tool(message: str, thread_id: str = None, output_dir: str = None, error: str = None, metadata: Dict[str, Any] = None) -> str:
     """
-    Posts a final result to the board for the given thread.
-    'output_dir' should be the S3 relative path to the results (optional).
-    'exit_code' is 0 for success, non-zero for failure.
-    'message' is an optional text message to include in the result.
-    'error' is an optional error message.
+    Posts a conversation message to the current thread.
+    message is required. output_dir, error, and metadata are optional context.
     """
-    return await safe_tool_call(post_response(output_dir, exit_code, message, error, thread_id))
+    return await safe_tool_call(post_message(message, thread_id, output_dir, error, metadata))
 
 @mcp.tool()
 async def sync_from_s3_tool(thread_id: str, sub_path: str = "input/") -> str:

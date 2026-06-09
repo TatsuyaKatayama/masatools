@@ -4,6 +4,7 @@ import masatools.skills.common.board as board
 from masatools.skills.common.board import (
     check_board,
     get_runtime_context,
+    post_message,
     post_response,
     create_thread,
     send_offer,
@@ -105,6 +106,58 @@ def test_start_monitoring_and_runtime_context():
     assert context["monitor_started_at"] is not None
     assert context["monitor_until"] is not None
     assert context["remaining_seconds"] > 0
+
+@pytest.mark.asyncio
+async def test_post_message_success():
+    tid = str(ULID())
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
+        mock_client = mock_get_nats.return_value
+
+        result = await post_message(
+            message="Implemented the requested change.",
+            output_dir="results/dir",
+            error=None,
+            metadata={"kind": "progress"},
+            thread_id=tid,
+        )
+
+        assert f"Message posted to board.result.{tid}" in result
+        mock_client.publish.assert_called_once()
+        args, kwargs = mock_client.publish.call_args
+        assert kwargs["subject"] == f"board.result.{tid}"
+        assert kwargs["message_type"] == "result"
+        assert kwargs["thread_id"] == tid
+        assert kwargs["payload"]["message"] == "Implemented the requested change."
+        assert kwargs["payload"]["output_dir"] == "results/dir"
+        assert kwargs["payload"]["metadata"] == {"kind": "progress"}
+
+@pytest.mark.asyncio
+async def test_post_message_uses_current_thread_id():
+    tid = str(ULID())
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats, \
+         patch("masatools.skills.common.board.get_default_context") as mock_context:
+        mock_client = mock_get_nats.return_value
+        mock_context.return_value.current_thread_id = tid
+
+        result = await post_message(message="Using current thread.")
+
+        assert f"Message posted to board.result.{tid}" in result
+        mock_client.publish.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_post_message_requires_message():
+    result = await post_message(message="  ", thread_id=str(ULID()))
+    assert result == "Error: message is required."
+
+@pytest.mark.asyncio
+async def test_post_message_requires_thread_id():
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock), \
+         patch("masatools.skills.common.board.get_default_context") as mock_context:
+        mock_context.return_value.current_thread_id = None
+
+        result = await post_message(message="No thread.")
+
+        assert result == "Error: No active thread_id found in context."
 
 @pytest.mark.asyncio
 async def test_post_response_success():
