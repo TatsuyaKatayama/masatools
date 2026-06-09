@@ -5,7 +5,7 @@ import pytest
 import httpx
 import asyncio
 import re
-from masatools.skills.common.board import create_thread, check_board, send_offer, send_assign, post_response
+from masatools.skills.common.board import create_thread, check_board, send_offer, send_assign, post_message
 import masatools.core.context
 import masatools.core
 
@@ -165,8 +165,15 @@ async def test_masabbs_integration_workflow():
 
     # 5. 結果報告 (Worker)
     print("\n--- Step 5: Post Result (Worker) ---")
-    res = await post_response(output_dir=f"tasks/{thread_id}/output/", exit_code=0, thread_id=thread_id)
-    assert "Result posted" in res
+    os.environ["AGENT_ID"] = "worker-1"
+    masatools.core.context._default_context = None
+    masatools.core._default_nats_client = None
+    res = await post_message(
+        message="Integration test completed successfully.",
+        output_dir=f"tasks/{thread_id}/output/",
+        thread_id=thread_id,
+    )
+    assert "Message posted" in res
 
     # 最終確認 (サーバー側DB)
     print("\n--- Step 6: Final DB Verification ---")
