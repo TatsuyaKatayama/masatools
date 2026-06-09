@@ -14,7 +14,7 @@ def test_mcp_tools_registered():
     from masatools.adapters.mcp.server import (
         check_board_tool, 
         get_runtime_context_tool,
-        post_response_tool, 
+        post_message_tool,
         start_monitoring_tool,
         sync_from_s3_tool, 
         sync_to_s3_tool, 
@@ -22,7 +22,7 @@ def test_mcp_tools_registered():
     )
     assert check_board_tool is not None
     assert get_runtime_context_tool is not None
-    assert post_response_tool is not None
+    assert post_message_tool is not None
     assert start_monitoring_tool is not None
     assert sync_from_s3_tool is not None
     assert sync_to_s3_tool is not None
@@ -56,10 +56,16 @@ async def test_mcp_get_runtime_context_tool_call():
         mock_context.assert_called_once_with()
 
 @pytest.mark.asyncio
-async def test_mcp_post_response_tool_call():
-    with patch("masatools.adapters.mcp.server.post_response", new_callable=AsyncMock) as mock_post:
-        mock_post.return_value = "Result posted"
-        from masatools.adapters.mcp.server import post_response_tool
-        result = await post_response_tool(output_dir="out", exit_code=0)
-        assert result == "Result posted"
-        mock_post.assert_called_once_with("out", 0, None, None, None)
+async def test_mcp_post_message_tool_call():
+    with patch("masatools.adapters.mcp.server.post_message", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = "Message posted"
+        from masatools.adapters.mcp.server import post_message_tool
+        result = await post_message_tool(
+            message="Done",
+            thread_id="thread-1",
+            output_dir="out",
+            error=None,
+            metadata={"kind": "progress"},
+        )
+        assert result == "Message posted"
+        mock_post.assert_called_once_with("Done", "thread-1", "out", None, {"kind": "progress"})

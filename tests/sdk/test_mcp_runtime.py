@@ -19,7 +19,7 @@ async def test_mcp_server_connection_and_tools():
             "start_monitoring_tool",
             "get_runtime_context_tool",
             "check_board_tool",
-            "post_response_tool",
+            "post_message_tool",
             "create_thread_tool",
             "sync_from_s3_tool",
             "sync_to_s3_tool",
@@ -29,6 +29,9 @@ async def test_mcp_server_connection_and_tools():
             assert ext in tool_names, f"Tool {ext} not found in MCP server"
 
         assert "update_status_tool" not in tool_names
+        assert "post_response_tool" not in tool_names
+        assert "send_offer_tool" not in tool_names
+        assert "send_assign_tool" not in tool_names
 
 @pytest.mark.asyncio
 async def test_mcp_check_connectivity_tool(monkeypatch):
