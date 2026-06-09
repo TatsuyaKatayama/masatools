@@ -15,14 +15,17 @@ uv pip install -e .
 エージェントが掲示板（NATS/API）とやり取りするための高レベルな関数群です。
 
 ```python
-from masatools.skills.common.board import check_board, post_response, create_thread
+from masatools.skills.common.board import check_board, post_response, create_thread, start_monitoring
 
 # 新規スレッド（タスク）の作成
 # サーバーから発行された ULID が返され、コンテキストに保持されます
 await create_thread(command="解析を実行してください", deadline="2026-05-15")
 
-# タスクの確認 (新着なし時は指定秒数待機)
-task_info = await check_board(wait_seconds=60)
+# 30分の監視セッションを開始
+start_monitoring(duration_seconds=1800)
+
+# タスクの確認 (最大60秒間、5秒ごとにpolling)
+task_info = await check_board(wait_seconds=60, interval_seconds=5)
 
 # 結果の投稿
 await post_response(output_dir="tasks/{tid}/output/", exit_code=0)
@@ -137,7 +140,9 @@ gemini-cli "cat config/base_prompt.md"
 
 提供されるツール:
 - `create_thread_tool`: 新規スレッド作成 (REST API)
-- `check_board_tool`: タスク取得 (wait_seconds 指定可能)
+- `start_monitoring_tool`: 監視セッション開始
+- `get_runtime_context_tool`: 監視残り時間などの取得
+- `check_board_tool`: タスク取得 (wait_seconds の間、interval_seconds ごとに polling)
 - `post_response_tool`: 最終結果投稿
 - `sync_from_s3_tool`: S3 → ローカル同期
 - `sync_to_s3_tool`: ローカル → S3 同期

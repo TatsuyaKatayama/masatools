@@ -1,9 +1,24 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from masatools.skills.common.board import check_board, post_response, create_thread, send_offer, send_assign
+import masatools.skills.common.board as board
+from masatools.skills.common.board import (
+    check_board,
+    get_runtime_context,
+    post_response,
+    create_thread,
+    send_offer,
+    send_assign,
+    start_monitoring,
+)
 from masatools.skills.common.storage import sync_from_s3, sync_to_s3
 from masatools.core.models import MessageEnvelope
 from ulid import ULID
+
+@pytest.fixture(autouse=True)
+def reset_monitoring_state():
+    board._monitor_started_at = None
+    board._monitor_until = None
+    board._monitor_duration_seconds = None
 
 @pytest.mark.asyncio
 async def test_check_board_found():
@@ -22,6 +37,74 @@ async def test_check_board_found():
         result = await check_board()
         assert f"Task found: task (Thread: {tid})" in result
         mock_client.pull_task.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_check_board_polls_until_task_found():
+    tid = str(ULID())
+    mock_envelope = MessageEnvelope(
+        type="task",
+        thread_id=tid,
+        from_agent="server",
+        payload={"command": "test"}
+    )
+
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats, \
+         patch("masatools.skills.common.board.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        mock_client = mock_get_nats.return_value
+        mock_client.pull_task.side_effect = [None, mock_envelope]
+
+        result = await check_board(wait_seconds=10, interval_seconds=2)
+        assert f"Task found: task (Thread: {tid})" in result
+        assert mock_client.pull_task.call_count == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] <= 2
+
+@pytest.mark.asyncio
+async def test_check_board_returns_no_messages_after_timeout():
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
+        mock_client = mock_get_nats.return_value
+        mock_client.pull_task.return_value = None
+
+        result = await check_board(wait_seconds=0, interval_seconds=1)
+        assert result == "No messages found"
+        mock_client.pull_task.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_check_board_returns_monitoring_finished_after_expiry():
+    start_monitoring(duration_seconds=0)
+
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
+        mock_client = mock_get_nats.return_value
+
+        result = await check_board(wait_seconds=10, interval_seconds=1)
+        assert result == "Monitoring finished"
+        mock_client.pull_task.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_check_board_limits_wait_to_remaining_monitoring_time():
+    start_monitoring(duration_seconds=1)
+
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats, \
+         patch("masatools.skills.common.board.asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
+         patch("masatools.skills.common.board._remaining_seconds_value", side_effect=[1, 0]):
+        mock_client = mock_get_nats.return_value
+        mock_client.pull_task.return_value = None
+
+        result = await check_board(wait_seconds=10, interval_seconds=5)
+        assert result == "Monitoring finished"
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] <= 1
+
+def test_start_monitoring_and_runtime_context():
+    result = start_monitoring(duration_seconds=1800)
+    context = get_runtime_context()
+
+    assert "Monitoring started" in result
+    assert context["is_monitoring"] is True
+    assert context["duration_seconds"] == 1800
+    assert context["monitor_started_at"] is not None
+    assert context["monitor_until"] is not None
+    assert context["remaining_seconds"] > 0
 
 @pytest.mark.asyncio
 async def test_post_response_success():

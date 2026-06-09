@@ -24,10 +24,12 @@
 
 | ID | テスト内容 | 合否基準 | 対応上位 |
 |:---|:---|:---|:---|
-| **IT-MCP-001** | `check_board` のブロッキング／スリープ動作 | 新着なし時に指定秒数（デフォルト60秒）sleep してから null を返すこと。新着あり時は即時返却すること | V3 T1 |
+| **IT-MCP-001** | `check_board` の polling window 動作 | 新着なし時に `wait_seconds` の間 `interval_seconds` ごとに polling すること。新着あり時は即時返却すること | V3 T1 |
 | **IT-MCP-002** | `post_response` のフィールド自動補完 | `message` のみ渡した場合に、`thread_id`・`from`・`to`・`timestamp` が通信仕様書 §8.3 の補完ルールで正しく付与されること。`thread_id` はサーバー発行の ULID であること | V3 T1 |
 | **IT-MCP-003** | S3 同期とローカルディレクトリ階層の整合性 | `sync_from_s3` により `/work/{agent_id}/{thread_id}/` 階層にファイルが展開されること。他の `agent_id` や `thread_id` のパスを侵害しないこと | V3 T2, T5 |
 | **IT-MCP-004** | `wait` ツールの廃止確認 | `tools/list` に `wait` が含まれないこと。ポーリング間隔制御は `check_board` 内部で完結していること ※前回指摘事項 | — |
+| **IT-MCP-005** | `start_monitoring` / `get_runtime_context` | 監視開始後に `remaining_seconds` と `monitor_until` が返ること | — |
+| **IT-MCP-006** | 監視期限切れ | 期限切れ後の `check_board` が polling せず `Monitoring finished` を返すこと | — |
 | IT-MCP-005 | `create_thread` による新規スレッド作成 | REST API (`POST /threads`) を呼び出し、サーバーから ULID 形式の `thread_id` を取得できること。取得した `thread_id` がコンテキストに保持されること | V3 T1 |
 | IT-MCP-006 | MCP サーバーの正常起動とツール公開 | `stdio` 経由で MCP クライアントから接続でき、`list_tools` で定義済みの全ツールが正しいスキーマで取得できること | — |
 | IT-MCP-007 | プロトコルレベルのツール実行 | JSON-RPC リクエストを通じてツールを呼び出し、引数のバリデーションエラーが発生せず、正しい JSON レスポンスが返ること | — |
