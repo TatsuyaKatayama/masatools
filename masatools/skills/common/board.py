@@ -1,9 +1,73 @@
 import os
 import asyncio
 import httpx
-from typing import Optional, List
+from datetime import datetime, timedelta, timezone
+import math
+from typing import Optional, List, Any, Dict
 from ...core import get_nats_client, get_default_context
 from ...core.models import MessageEnvelope
+
+_monitor_started_at: Optional[datetime] = None
+_monitor_until: Optional[datetime] = None
+_monitor_duration_seconds: Optional[int] = None
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _format_datetime(value: Optional[datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.isoformat()
+
+
+def _remaining_seconds_value(now: Optional[datetime] = None) -> Optional[float]:
+    if _monitor_until is None:
+        return None
+    current = now or _now()
+    remaining = (_monitor_until - current).total_seconds()
+    return max(0, remaining)
+
+
+def _remaining_seconds(now: Optional[datetime] = None) -> Optional[int]:
+    remaining = _remaining_seconds_value(now)
+    if remaining is None:
+        return None
+    return math.ceil(remaining)
+
+
+def start_monitoring(duration_seconds: int) -> str:
+    """
+    Starts an in-process monitoring session for the current MCP server.
+    """
+    global _monitor_started_at, _monitor_until, _monitor_duration_seconds
+
+    duration = max(0, int(duration_seconds))
+    started_at = _now()
+    _monitor_started_at = started_at
+    _monitor_until = started_at + timedelta(seconds=duration)
+    _monitor_duration_seconds = duration
+
+    return (
+        "Monitoring started\n"
+        f"Duration seconds: {duration}\n"
+        f"Monitor until: {_format_datetime(_monitor_until)}"
+    )
+
+
+def get_runtime_context() -> Dict[str, Any]:
+    """
+    Returns current runtime context for the monitoring session.
+    """
+    remaining = _remaining_seconds()
+    return {
+        "is_monitoring": _monitor_until is not None and (remaining or 0) > 0,
+        "monitor_started_at": _format_datetime(_monitor_started_at),
+        "monitor_until": _format_datetime(_monitor_until),
+        "duration_seconds": _monitor_duration_seconds,
+        "remaining_seconds": remaining,
+    }
 
 async def register_agent(name: Optional[str] = None, role: str = "worker", mission: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
@@ -67,32 +131,44 @@ async def create_thread(command: str, deadline: str, to: List[str] = [], observe
         else:
             return f"Error: thread_id not found in response: {data}"
 
-async def check_board(wait_seconds: int = 60) -> str:
+async def check_board(wait_seconds: int = 60, interval_seconds: int = 5) -> str:
     """
     Checks the NATS board for a new task.
-    If no task is found, it waits for wait_seconds before returning.
+    Polls until a task is found or wait_seconds elapses.
     """
     client = await get_nats_client()
     context = get_default_context()
-    
-    # We pull from board.task.* using a durable consumer named after the agent
-    # Subject: board.task.*
-    # Stream: board_tasks
-    envelope = await client.pull_task(
-        stream="board_tasks",
-        subject="board.task.*",
-        durable=f"worker-{context.agent_id}"
-    )
-    
-    if envelope:
-        # Update context with current thread_id
-        context.current_thread_id = envelope.thread_id
-        return f"Task found: {envelope.type} (Thread: {envelope.thread_id})\nPayload: {envelope.payload}"
-    
-    if wait_seconds > 0:
-        await asyncio.sleep(wait_seconds)
-    
-    return "No tasks found"
+    deadline = asyncio.get_running_loop().time() + max(0, wait_seconds)
+    interval = max(1, interval_seconds)
+
+    while True:
+        remaining_monitor_seconds = _remaining_seconds_value()
+        if remaining_monitor_seconds == 0:
+            return "Monitoring finished"
+
+        envelope = await client.pull_task(
+            stream="board_tasks",
+            subject="board.task.*",
+            durable=f"worker-{context.agent_id}"
+        )
+
+        if envelope:
+            context.current_thread_id = envelope.thread_id
+            return f"Task found: {envelope.type} (Thread: {envelope.thread_id})\nPayload: {envelope.payload}"
+
+        now = asyncio.get_running_loop().time()
+        remaining_wait_seconds = deadline - now
+        if remaining_wait_seconds <= 0:
+            return "No messages found"
+
+        sleep_seconds = min(interval, remaining_wait_seconds)
+        if remaining_monitor_seconds is not None:
+            sleep_seconds = min(sleep_seconds, remaining_monitor_seconds)
+
+        if sleep_seconds <= 0:
+            return "Monitoring finished"
+
+        await asyncio.sleep(sleep_seconds)
 
 async def send_offer(eta_seconds: int, confidence: float, thread_id: str = None) -> str:
     """

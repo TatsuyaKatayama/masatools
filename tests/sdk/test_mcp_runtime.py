@@ -16,6 +16,8 @@ async def test_mcp_server_connection_and_tools():
         tool_names = [t.name for t in tools]
 
         expected_tools = [
+            "start_monitoring_tool",
+            "get_runtime_context_tool",
             "check_board_tool",
             "post_response_tool",
             "create_thread_tool",

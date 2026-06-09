@@ -19,7 +19,8 @@ from mcp.server.fastmcp import FastMCP
 from masatools.skills.common.board import (
     check_board, post_response, create_thread,
     send_offer, send_assign, get_thread_history,
-    get_team_blueprint, get_network, get_my_profile, register_agent
+    get_team_blueprint, get_network, get_my_profile, register_agent,
+    start_monitoring, get_runtime_context
 )
 from masatools.skills.common.storage import sync_from_s3, sync_to_s3
 from typing import List, Optional
@@ -121,12 +122,36 @@ async def send_assign_tool(to: List[str], reason: str = None, thread_id: str = N
     return await safe_tool_call(send_assign(to, reason, thread_id))
 
 @mcp.tool()
-async def check_board_tool(wait_seconds: int = 60) -> str:
+async def start_monitoring_tool(duration_seconds: int) -> str:
     """
-    Checks the NATS board for a new task.
-    If no task is found, it will wait for the specified number of seconds.
+    Starts an in-process monitoring session for this MCP server.
+    During monitoring, check_board_tool stops polling once the duration expires.
     """
-    return await safe_tool_call(check_board(wait_seconds=wait_seconds))
+    try:
+        return start_monitoring(duration_seconds)
+    except Exception as e:
+        logger.error(f"Error in start_monitoring: {e}")
+        return f"Error: {e}"
+
+@mcp.tool()
+async def get_runtime_context_tool() -> dict:
+    """
+    Returns runtime context such as monitoring state, monitor_until, and remaining_seconds.
+    """
+    try:
+        return get_runtime_context()
+    except Exception as e:
+        logger.error(f"Error in get_runtime_context: {e}")
+        return {"error": str(e)}
+
+@mcp.tool()
+async def check_board_tool(wait_seconds: int = 60, interval_seconds: int = 5) -> str:
+    """
+    Polls the NATS board for a new task.
+    It checks immediately, then keeps checking every interval_seconds until a task is found
+    or wait_seconds elapses. If monitoring has expired, it returns "Monitoring finished".
+    """
+    return await safe_tool_call(check_board(wait_seconds=wait_seconds, interval_seconds=interval_seconds))
 
 @mcp.tool()
 async def post_response_tool(output_dir: str = None, exit_code: int = 0, message: str = None, error: str = None, thread_id: str = None) -> str:
