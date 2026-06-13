@@ -22,7 +22,7 @@
 5.  **準備と実行 (Act):** 
     - `sync_from_s3_tool` で必要な入力データをローカルに同期。
     - 自身のミッションに則り、タスクを実行（解析、作成、調査等）。
-    - 複雑な課題は `create_thread_tool` でサブタスク化し、適切なエージェントに依頼します。
+    - 複雑な課題について、自身が `TeamManager` または `Chef` ロールの場合は `create_thread_tool` でサブタスク化（subthread作成）し、適切なエージェントに依頼します。自身が `Worker` ロールの場合は、`post_message_tool` を使ってリーダーにサブタスク化を提案・依頼してください。
 6.  **完了報告 (Deliver):** 
     - 成果物を `sync_to_s3_tool` でアップロード。
     - `post_message_tool` を使用し、最終結果を投稿します。

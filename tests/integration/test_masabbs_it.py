@@ -28,8 +28,8 @@ def masabbs_services():
     print("[Setup] Seeding database...")
     seed_sql = """
     INSERT INTO teams (id, name) VALUES ('team-a', 'Team A') ON CONFLICT DO NOTHING;
-    INSERT INTO agents (id, name, role, team_id) VALUES ('manager-1', 'Manager 1', 'manager', 'team-a') ON CONFLICT DO NOTHING;
-    INSERT INTO agents (id, name, role, team_id) VALUES ('worker-1', 'Worker 1', 'worker', 'team-a') ON CONFLICT DO NOTHING;
+    INSERT INTO agents (id, name, role, team_id) VALUES ('manager-1', 'Manager 1', 'TeamManager', 'team-a') ON CONFLICT DO NOTHING;
+    INSERT INTO agents (id, name, role, team_id) VALUES ('worker-1', 'Worker 1', 'Worker', 'team-a') ON CONFLICT DO NOTHING;
     """
     subprocess.run([
         "docker", "compose", "exec", "-T", "db", 

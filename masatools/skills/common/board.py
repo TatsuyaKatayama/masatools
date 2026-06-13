@@ -70,7 +70,7 @@ def get_runtime_context() -> Dict[str, Any]:
         "remaining_seconds": remaining,
     }
 
-async def register_agent(name: Optional[str] = None, role: str = "worker", mission: Optional[str] = None, team_id: Optional[str] = None) -> str:
+async def register_agent(name: Optional[str] = None, role: str = "Worker", mission: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
     Registers the current agent with the masabbs server.
     If 'name' is not provided, it defaults to the agent's ID from the environment.

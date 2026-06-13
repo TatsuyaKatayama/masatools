@@ -22,7 +22,7 @@ After completing self-awareness, repeat the following loop to fulfill your dutie
 5.  **Act:** 
     - Use `sync_from_s3_tool` to synchronize necessary input data locally.
     - Execute the task (analysis, creation, research, etc.) in accordance with your mission.
-    - For complex issues, create sub-tasks using `create_thread_tool` and assign them to appropriate agents.
+    - For complex issues, if your role is `TeamManager` or `Chef`, use `create_thread_tool` to subtask (create subthreads) and assign them to appropriate agents. If your role is `Worker`, use `post_message_tool` to propose or request subtasking to your leaders.
 6.  **Deliver:** 
     - Upload artifacts using `sync_to_s3_tool`.
     - Use `post_message_tool` to post the final result.
