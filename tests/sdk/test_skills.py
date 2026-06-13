@@ -110,39 +110,40 @@ def test_start_monitoring_and_runtime_context():
 @pytest.mark.asyncio
 async def test_post_message_success():
     tid = str(ULID())
-    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
-        mock_client = mock_get_nats.return_value
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = MagicMock(status_code=201)
+        mock_post.return_value.json.return_value = {"id": "M1"}
 
         result = await post_message(
-            message="Implemented the requested change.",
+            message="Implemented the requested change @manager.",
             output_dir="results/dir",
             error=None,
             metadata={"kind": "progress"},
             thread_id=tid,
         )
 
-        assert f"Message posted to board.result.{tid}" in result
-        mock_client.publish.assert_called_once()
-        args, kwargs = mock_client.publish.call_args
-        assert kwargs["subject"] == f"board.result.{tid}"
-        assert kwargs["message_type"] == "result"
-        assert kwargs["thread_id"] == tid
-        assert kwargs["payload"]["message"] == "Implemented the requested change."
-        assert kwargs["payload"]["output_dir"] == "results/dir"
-        assert kwargs["payload"]["metadata"] == {"kind": "progress"}
+        assert f"Message posted to thread {tid}" in result
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        assert kwargs["json"]["message"] == "Implemented the requested change @manager."
+        assert kwargs["json"]["output_dir"] == "results/dir"
+        assert kwargs["json"]["metadata"] == {"kind": "progress"}
 
 @pytest.mark.asyncio
 async def test_post_message_uses_current_thread_id():
     tid = str(ULID())
-    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats, \
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
          patch("masatools.skills.common.board.get_default_context") as mock_context:
-        mock_client = mock_get_nats.return_value
+        mock_post.return_value = MagicMock(status_code=201)
+        mock_post.return_value.json.return_value = {"id": "M1"}
+        mock_context.return_value.agent_id = "test-agent"
+        mock_context.return_value.api_url = "http://localhost:8080/api/v1"
         mock_context.return_value.current_thread_id = tid
 
-        result = await post_message(message="Using current thread.")
+        result = await post_message(message="Using current thread @manager.")
 
-        assert f"Message posted to board.result.{tid}" in result
-        mock_client.publish.assert_called_once()
+        assert f"Message posted to thread {tid}" in result
+        mock_post.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_post_message_requires_message():

@@ -261,25 +261,20 @@ async def post_response(output_dir: Optional[str] = None, exit_code: int = 0, me
 
 async def post_message(message: str, thread_id: str = None, output_dir: Optional[str] = None, error: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
     """
-    Posts a conversation message to the current thread.
-    Internally it is published as a result message for compatibility.
+    Posts a conversation message to the current thread via REST API.
+    Server handles mention resolution and NATS publishing.
     """
     if message is None or not message.strip():
         return "Error: message is required."
 
-    client = await get_nats_client()
     context = get_default_context()
-
     tid = thread_id or context.current_thread_id
     if not tid:
         return "Error: No active thread_id found in context."
 
-    # Step 3: Resolve mentions from the message body
-    to_agents, error_code = await resolve_mentions(message, tid, context)
-    if error_code:
-        return f"Error: {error_code}"
-
-    payload: Dict[str, Any] = {
+    url = f"{context.api_url}/threads/{tid}/messages"
+    payload = {
+        "from_agent": context.agent_id,
         "message": message.strip(),
     }
     if output_dir:
@@ -289,16 +284,20 @@ async def post_message(message: str, thread_id: str = None, output_dir: Optional
     if metadata:
         payload["metadata"] = metadata
 
-    subject = f"board.result.{tid}"
-    await client.publish(
-        subject=subject,
-        message_type="result",
-        payload=payload,
-        thread_id=tid,
-        to=to_agents
-    )
-
-    return f"Message posted to {subject}"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, json=payload)
+            if response.status_code == 201:
+                return f"Message posted to thread {tid}"
+            else:
+                try:
+                    err_data = response.json()
+                    err_msg = err_data.get("error", response.text)
+                    return f"Error: {err_msg}"
+                except Exception:
+                    return f"Error: Status {response.status_code}, Body: {response.text}"
+        except Exception as e:
+            return f"Error connecting to masabbs: {e}"
 
 async def get_thread_history(thread_id: str = None) -> str:
     """

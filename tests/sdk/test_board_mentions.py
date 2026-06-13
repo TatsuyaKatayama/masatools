@@ -17,33 +17,28 @@ def context():
         yield ctx
 
 @pytest.mark.asyncio
-async def test_post_message_with_mentions_success(context):
-    # Mock resolve_mentions to return a list of agents
-    with patch("masatools.skills.common.board.resolve_mentions", new_callable=AsyncMock) as mock_resolve:
-        mock_resolve.return_value = (["agent-1", "agent-2"], None)
+async def test_post_message_success(context):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = MagicMock(status_code=201)
         
-        with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_nats:
-            mock_client = mock_nats.return_value
-            
-            result = await post_message("Hello @agent-1 @agent-2")
-            
-            assert "Message posted to board.result.T1" in result
-            mock_resolve.assert_called_once_with("Hello @agent-1 @agent-2", "T1", context)
-            # Verify to_agents is passed to publish
-            mock_client.publish.assert_called_once()
-            args, kwargs = mock_client.publish.call_args
-            assert kwargs["to"] == ["agent-1", "agent-2"]
+        result = await post_message("Hello @agent-1")
+        
+        assert "Message posted to thread T1" in result
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        assert kwargs["json"]["from_agent"] == "test-agent"
+        assert kwargs["json"]["message"] == "Hello @agent-1"
 
 @pytest.mark.asyncio
-async def test_post_message_with_mentions_failure(context):
-    # Mock resolve_mentions to return NO_RECIPIENT
-    with patch("masatools.skills.common.board.resolve_mentions", new_callable=AsyncMock) as mock_resolve:
-        mock_resolve.return_value = ([], "NO_RECIPIENT")
+async def test_post_message_mention_error(context):
+    # Simulate server returning a mention error
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = MagicMock(
+            status_code=400, 
+            json=lambda: {"error": "NO_RECIPIENT"}
+        )
         
-        with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_nats:
-            mock_client = mock_nats.return_value
-            
-            result = await post_message("Hello world") # No mentions
-            
-            assert "Error: NO_RECIPIENT" in result
-            mock_client.publish.assert_not_called()
+        result = await post_message("Hello world") # No mentions
+        
+        assert "Error: NO_RECIPIENT" in result
+        mock_post.assert_called_once()

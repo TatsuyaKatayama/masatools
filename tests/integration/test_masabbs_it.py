@@ -169,7 +169,7 @@ async def test_masabbs_integration_workflow():
     masatools.core.context._default_context = None
     masatools.core._default_nats_client = None
     res = await post_message(
-        message="Integration test completed successfully.",
+        message="Integration test completed successfully @manager-1.",
         output_dir=f"tasks/{thread_id}/output/",
         thread_id=thread_id,
     )

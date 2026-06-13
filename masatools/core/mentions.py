@@ -11,7 +11,10 @@ async def resolve_mentions(
     context: AgentContext
 ) -> Tuple[List[str], Optional[str]]:
     """
-    Extracts and resolves mentions from a message.
+    Extracts and resolves mentions from a message (Client-side helper).
+    NOTE: masabbs is the authoritative resolver. This module is for 
+    pre-checks or UI-side expansion.
+    
     Supported: @agent-id, @team
     
     Returns:
