@@ -20,7 +20,8 @@ from masatools.skills.common.board import (
     check_board, post_message, create_thread, create_subthread,
     get_thread_history,
     get_team_blueprint, get_network, get_my_profile, register_agent,
-    start_monitoring, get_runtime_context
+    start_monitoring, get_runtime_context,
+    request_reflection, submit_reflection
 )
 from masatools.skills.common.storage import sync_from_s3, sync_to_s3
 from typing import Any, Dict, List, Optional
@@ -210,6 +211,23 @@ async def get_network_tool() -> str:
     Shows leaders, subordinates, and coworkers.
     """
     return await safe_tool_call(get_network())
+
+@mcp.tool()
+async def request_reflection_tool(thread_id: str, due_at: Optional[str] = None) -> str:
+    """
+    Requests a reflection session for a thread by spinning up a reflection subthread.
+    'due_at' is optional and should be an ISO8601 string.
+    """
+    return await safe_tool_call(request_reflection(thread_id, due_at))
+
+@mcp.tool()
+async def submit_reflection_tool(request_id: str, target_agent_id: str, dimension: str, score: int, reason: str, suggestion: Optional[str] = None) -> str:
+    """
+    Submits a structured reflection evaluation for an agent inside your team.
+    'dimension' represents the evaluation axis, e.g., 'clarity', 'collaboration', etc.
+    'score' must be -1, 0, or 1.
+    """
+    return await safe_tool_call(submit_reflection(request_id, target_agent_id, dimension, score, reason, suggestion))
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

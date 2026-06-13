@@ -5,7 +5,7 @@ import pytest
 import httpx
 import asyncio
 import re
-from masatools.skills.common.board import create_thread, create_subthread, check_board, send_offer, send_assign, post_message
+from masatools.skills.common.board import create_thread, create_subthread, check_board, send_offer, send_assign, post_message, request_reflection, submit_reflection
 import masatools.core.context
 import masatools.core
 
@@ -243,4 +243,70 @@ async def test_masabbs_subthread_permissions():
     fail_res2 = await create_subthread(parent_thread_id, "Worker Subtask @chef-1")
     assert "Error: Failed to create thread. Status: 403" in fail_res2
     assert "only TeamManager or Chef can create subthreads" in fail_res2
+
+
+@pytest.mark.asyncio
+async def test_masabbs_reflection_integration():
+    """Step 6: Reflection request (subthread creation, NATS task publish) and submission integration."""
+    # 1. TeamManager creates parent thread
+    print("\n--- Reflection Test: Create Parent Thread (Manager) ---")
+    os.environ["AGENT_ID"] = "manager-1"
+    masatools.core.context._default_context = None
+    masatools.core._default_nats_client = None
+    
+    res = await create_thread("Parent Task @worker-1", "2026-12-31T23:59:59Z")
+    assert "Thread created" in res
+    parent_thread_id = re.search(r"Thread created: ([\w\-]+)", res).group(1)
+    
+    # 2. Request Reflection
+    print("\n--- Reflection Test: Request Reflection (Manager) ---")
+    req_res = await request_reflection(parent_thread_id)
+    assert "Reflection requested successfully" in req_res
+    request_id = re.search(r"Request ID: ([\w\-]+)", req_res).group(1)
+    reflection_thread_id = re.search(r"Reflection Subthread ID: ([\w\-]+)", req_res).group(1)
+    
+    print(f"Request ID: {request_id}")
+    print(f"Reflection Subthread ID: {reflection_thread_id}")
+
+    # 3. Pull the reflection request on NATS via check_board
+    print("\n--- Reflection Test: Pull Request (Worker) ---")
+    os.environ["AGENT_ID"] = "worker-1"
+    masatools.core.context._default_context = None
+    masatools.core._default_nats_client = None
+    
+    await asyncio.sleep(2) # Wait for JetStream persistence
+    found = False
+    board_res = ""
+    for _ in range(10):
+        board_res = await check_board(wait_seconds=3)
+        if f"Thread: {reflection_thread_id}" in board_res:
+            found = True
+            break
+        await asyncio.sleep(1)
+    assert found, f"Reflection task {reflection_thread_id} not found in board. Last response: {board_res}"
+
+    # 4. Submit Reflection (Succeeds)
+    print("\n--- Reflection Test: Submit Reflection (Succeeds) ---")
+    sub_res = await submit_reflection(
+        request_id=request_id,
+        target_agent_id="chef-1", # Same team colleague/boss
+        dimension="collaboration",
+        score=1,
+        reason="Exceeded expectations",
+        suggestion="Keep doing great work",
+    )
+    assert "Reflection submitted successfully" in sub_res
+
+    # 5. Submit Reflection on unrelated agent (Fails)
+    print("\n--- Reflection Test: Submit Reflection to unrelated agent (Fails) ---")
+    unrelated_res = await submit_reflection(
+        request_id=request_id,
+        target_agent_id="chef-2", # Chef on team-b (unrelated)
+        dimension="collaboration",
+        score=1,
+        reason="Unrelated",
+    )
+    assert "Error: Failed to submit reflection" in unrelated_res
+    assert "INVALID_TARGET_AGENT" in unrelated_res
+
 

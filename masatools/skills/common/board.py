@@ -459,3 +459,59 @@ async def get_network() -> str:
             return "\n".join(lines)
         except Exception as e:
             return f"Error fetching network: {e}"
+
+async def request_reflection(thread_id: str, due_at: Optional[str] = None) -> str:
+    """
+    Requests a reflection task for a completed thread by creating a dedicated subthread
+    and alerting all involved team members.
+    """
+    context = get_default_context()
+    url = f"{context.api_url}/threads/{thread_id}/reflection-requests"
+    
+    payload = {
+        "requested_by_agent": context.agent_id,
+    }
+    if due_at:
+        payload["due_at"] = due_at
+        
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, json=payload)
+            if response.status_code != 201:
+                return f"Error: Failed to request reflection. Status: {response.status_code}, Body: {response.text}"
+            
+            data = response.json()
+            return f"Reflection requested successfully!\nRequest ID: {data.get('request_id')}\nReflection Subthread ID: {data.get('reflection_thread_id')}"
+        except Exception as e:
+            return f"Error during reflection request: {e}"
+
+async def submit_reflection(request_id: str, target_agent_id: str, dimension: str, score: int, reason: str, suggestion: Optional[str] = None) -> str:
+    """
+    Submits a structured reflection evaluation for another agent within your team.
+    'dimension' should be a valid dimension, e.g., 'clarity', 'collaboration', etc.
+    'score' must be -1, 0, or 1.
+    """
+    context = get_default_context()
+    url = f"{context.api_url}/reflections"
+    
+    payload = {
+        "request_id": request_id,
+        "from_agent_id": context.agent_id,
+        "target_agent_id": target_agent_id,
+        "dimension": dimension,
+        "score": score,
+        "reason": reason,
+    }
+    if suggestion:
+        payload["suggestion"] = suggestion
+        
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, json=payload)
+            if response.status_code != 201:
+                return f"Error: Failed to submit reflection. Status: {response.status_code}, Body: {response.text}"
+            
+            data = response.json()
+            return f"Reflection submitted successfully!\nReflection ID: {data.get('id')}"
+        except Exception as e:
+            return f"Error during reflection submission: {e}"

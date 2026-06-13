@@ -11,6 +11,8 @@ from masatools.skills.common.board import (
     send_offer,
     send_assign,
     start_monitoring,
+    request_reflection,
+    submit_reflection
 )
 from masatools.skills.common.storage import sync_from_s3, sync_to_s3
 from masatools.core.models import MessageEnvelope
@@ -293,6 +295,36 @@ async def test_create_subthread_success():
         args, kwargs = mock_post.call_args
         assert kwargs["json"]["command"] == "do child task"
         assert kwargs["json"]["parent_thread_id"] == parent_tid
+
+@pytest.mark.asyncio
+async def test_request_reflection_success():
+    req_id = str(ULID())
+    ref_tid = str(ULID())
+    mock_response = MagicMock()
+    mock_response.status_code = 201
+    mock_response.json.return_value = {"request_id": req_id, "reflection_thread_id": ref_tid}
+    
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = mock_response
+        
+        result = await request_reflection("parent-thread-123", "2026-12-31")
+        assert f"Request ID: {req_id}" in result
+        assert f"Reflection Subthread ID: {ref_tid}" in result
+        mock_post.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_submit_reflection_success():
+    ref_id = str(ULID())
+    mock_response = MagicMock()
+    mock_response.status_code = 201
+    mock_response.json.return_value = {"id": ref_id}
+    
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = mock_response
+        
+        result = await submit_reflection("req-123", "target-agent", "clarity", 1, "Good work", "Keep it up")
+        assert f"Reflection ID: {ref_id}" in result
+        mock_post.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_send_offer_success():

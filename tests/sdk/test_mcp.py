@@ -19,7 +19,9 @@ def test_mcp_tools_registered():
         sync_from_s3_tool, 
         sync_to_s3_tool, 
         create_thread_tool,
-        create_subthread_tool
+        create_subthread_tool,
+        request_reflection_tool,
+        submit_reflection_tool
     )
     assert check_board_tool is not None
     assert get_runtime_context_tool is not None
@@ -29,6 +31,8 @@ def test_mcp_tools_registered():
     assert sync_to_s3_tool is not None
     assert create_thread_tool is not None
     assert create_subthread_tool is not None
+    assert request_reflection_tool is not None
+    assert submit_reflection_tool is not None
 
 @pytest.mark.asyncio
 async def test_mcp_check_board_call():
@@ -83,3 +87,31 @@ async def test_mcp_create_subthread_tool_call():
         )
         assert result == "Subthread created"
         mock_sub.assert_called_once_with("parent-1", "Do subtask @worker-1")
+
+@pytest.mark.asyncio
+async def test_mcp_request_reflection_tool_call():
+    with patch("masatools.adapters.mcp.server.request_reflection", new_callable=AsyncMock) as mock_req:
+        mock_req.return_value = "Reflection requested"
+        from masatools.adapters.mcp.server import request_reflection_tool
+        result = await request_reflection_tool(
+            thread_id="thread-parent",
+            due_at="2026-12-31T23:59:59Z",
+        )
+        assert result == "Reflection requested"
+        mock_req.assert_called_once_with("thread-parent", "2026-12-31T23:59:59Z")
+
+@pytest.mark.asyncio
+async def test_mcp_submit_reflection_tool_call():
+    with patch("masatools.adapters.mcp.server.submit_reflection", new_callable=AsyncMock) as mock_sub:
+        mock_sub.return_value = "Reflection submitted"
+        from masatools.adapters.mcp.server import submit_reflection_tool
+        result = await submit_reflection_tool(
+            request_id="req-123",
+            target_agent_id="target-1",
+            dimension="clarity",
+            score=1,
+            reason="Clear instruction",
+            suggestion="None",
+        )
+        assert result == "Reflection submitted"
+        mock_sub.assert_called_once_with("req-123", "target-1", "clarity", 1, "Clear instruction", "None")
