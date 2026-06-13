@@ -140,7 +140,8 @@ async def check_board_tool(wait_seconds: int = 60, interval_seconds: int = 5) ->
 async def post_message_tool(message: str, thread_id: str = None, output_dir: str = None, error: str = None, metadata: Dict[str, Any] = None) -> str:
     """
     Posts a conversation message to the current thread.
-    message is required. output_dir, error, and metadata are optional context.
+    'message' is required and MUST contain at least one mention (e.g., @agent-id or @team).
+    'output_dir', 'error', and 'metadata' are optional context.
     """
     return await safe_tool_call(post_message(message, thread_id, output_dir, error, metadata))
 

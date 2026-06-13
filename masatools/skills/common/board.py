@@ -6,6 +6,7 @@ import math
 from typing import Optional, List, Any, Dict
 from ...core import get_nats_client, get_default_context
 from ...core.models import MessageEnvelope
+from ...core.mentions import resolve_mentions
 
 _monitor_started_at: Optional[datetime] = None
 _monitor_until: Optional[datetime] = None
@@ -273,6 +274,11 @@ async def post_message(message: str, thread_id: str = None, output_dir: Optional
     if not tid:
         return "Error: No active thread_id found in context."
 
+    # Step 3: Resolve mentions from the message body
+    to_agents, error_code = await resolve_mentions(message, tid, context)
+    if error_code:
+        return f"Error: {error_code}"
+
     payload: Dict[str, Any] = {
         "message": message.strip(),
     }
@@ -288,7 +294,8 @@ async def post_message(message: str, thread_id: str = None, output_dir: Optional
         subject=subject,
         message_type="result",
         payload=payload,
-        thread_id=tid
+        thread_id=tid,
+        to=to_agents
     )
 
     return f"Message posted to {subject}"
