@@ -20,7 +20,7 @@ jobs:
       uses: actions/checkout@v6
       with:
         repository: TatsuyaKatayama/masabbs
-        ref: b8876f3cf5e2f7e0485a1bdda18673b8baf8ae43
+        ref: fcbfa01c613eb2e3f506e7e496daca3261b7632d
         path: masabbs
 
     - name: Install uv
