@@ -132,6 +132,13 @@ async def create_thread(command: str, deadline: str, to: List[str] = [], observe
         else:
             return f"Error: thread_id not found in response: {data}"
 
+async def create_subthread(parent_thread_id: str, message: str) -> str:
+    """
+    Creates a new subthread (child thread) under a parent thread.
+    Mentions like @agent-id or @team in the message will automatically assign the thread.
+    """
+    return await create_thread(command=message, deadline="", parent_thread_id=parent_thread_id)
+
 async def check_board(wait_seconds: int = 60, interval_seconds: int = 5) -> str:
     """
     Checks the NATS board for a new task.

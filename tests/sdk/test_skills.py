@@ -7,6 +7,7 @@ from masatools.skills.common.board import (
     post_message,
     post_response,
     create_thread,
+    create_subthread,
     send_offer,
     send_assign,
     start_monitoring,
@@ -273,6 +274,25 @@ async def test_create_thread_success():
         # Check payload
         args, kwargs = mock_post.call_args
         assert kwargs["json"]["command"] == "do something"
+
+@pytest.mark.asyncio
+async def test_create_subthread_success():
+    tid = str(ULID())
+    parent_tid = str(ULID())
+    mock_response = MagicMock()
+    mock_response.status_code = 201
+    mock_response.json.return_value = {"thread_id": tid, "input_dir": "tasks/input"}
+    
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = mock_response
+        
+        result = await create_subthread(parent_tid, "do child task")
+        assert f"Thread created: {tid}" in result
+        mock_post.assert_called_once()
+        # Check payload
+        args, kwargs = mock_post.call_args
+        assert kwargs["json"]["command"] == "do child task"
+        assert kwargs["json"]["parent_thread_id"] == parent_tid
 
 @pytest.mark.asyncio
 async def test_send_offer_success():

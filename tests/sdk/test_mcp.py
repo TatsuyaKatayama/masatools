@@ -18,7 +18,8 @@ def test_mcp_tools_registered():
         start_monitoring_tool,
         sync_from_s3_tool, 
         sync_to_s3_tool, 
-        create_thread_tool
+        create_thread_tool,
+        create_subthread_tool
     )
     assert check_board_tool is not None
     assert get_runtime_context_tool is not None
@@ -27,6 +28,7 @@ def test_mcp_tools_registered():
     assert sync_from_s3_tool is not None
     assert sync_to_s3_tool is not None
     assert create_thread_tool is not None
+    assert create_subthread_tool is not None
 
 @pytest.mark.asyncio
 async def test_mcp_check_board_call():
@@ -69,3 +71,15 @@ async def test_mcp_post_message_tool_call():
         )
         assert result == "Message posted"
         mock_post.assert_called_once_with("Done", "thread-1", "out", None, {"kind": "progress"})
+
+@pytest.mark.asyncio
+async def test_mcp_create_subthread_tool_call():
+    with patch("masatools.adapters.mcp.server.create_subthread", new_callable=AsyncMock) as mock_sub:
+        mock_sub.return_value = "Subthread created"
+        from masatools.adapters.mcp.server import create_subthread_tool
+        result = await create_subthread_tool(
+            parent_thread_id="parent-1",
+            message="Do subtask @worker-1",
+        )
+        assert result == "Subthread created"
+        mock_sub.assert_called_once_with("parent-1", "Do subtask @worker-1")

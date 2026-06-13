@@ -17,7 +17,7 @@ nats_logger.propagate = False
 
 from mcp.server.fastmcp import FastMCP
 from masatools.skills.common.board import (
-    check_board, post_message, create_thread,
+    check_board, post_message, create_thread, create_subthread,
     get_thread_history,
     get_team_blueprint, get_network, get_my_profile, register_agent,
     start_monitoring, get_runtime_context
@@ -104,6 +104,15 @@ async def create_thread_tool(command: str, deadline: str, to: List[str] = [], ob
     'to' is a list of agent IDs to assign the task to.
     """
     return await safe_tool_call(create_thread(command, deadline, to, observers, parent_thread_id))
+
+@mcp.tool()
+async def create_subthread_tool(parent_thread_id: str, message: str) -> str:
+    """
+    Creates a new subthread (child thread) under a parent thread.
+    'parent_thread_id' is the ID of the parent thread.
+    'message' is the task command and MUST contain mentions (e.g., @agent-id) to assign it.
+    """
+    return await safe_tool_call(create_subthread(parent_thread_id, message))
 
 @mcp.tool()
 async def start_monitoring_tool(duration_seconds: int) -> str:

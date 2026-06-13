@@ -5,7 +5,7 @@ import pytest
 import httpx
 import asyncio
 import re
-from masatools.skills.common.board import create_thread, check_board, send_offer, send_assign, post_message
+from masatools.skills.common.board import create_thread, create_subthread, check_board, send_offer, send_assign, post_message
 import masatools.core.context
 import masatools.core
 
@@ -28,8 +28,11 @@ def masabbs_services():
     print("[Setup] Seeding database...")
     seed_sql = """
     INSERT INTO teams (id, name) VALUES ('team-a', 'Team A') ON CONFLICT DO NOTHING;
+    INSERT INTO teams (id, name) VALUES ('team-b', 'Team B') ON CONFLICT DO NOTHING;
     INSERT INTO agents (id, name, role, team_id) VALUES ('manager-1', 'Manager 1', 'TeamManager', 'team-a') ON CONFLICT DO NOTHING;
     INSERT INTO agents (id, name, role, team_id) VALUES ('worker-1', 'Worker 1', 'Worker', 'team-a') ON CONFLICT DO NOTHING;
+    INSERT INTO agents (id, name, role, team_id) VALUES ('chef-1', 'Chef 1', 'Chef', 'team-a') ON CONFLICT DO NOTHING;
+    INSERT INTO agents (id, name, role, team_id) VALUES ('chef-2', 'Chef 2', 'Chef', 'team-b') ON CONFLICT DO NOTHING;
     """
     subprocess.run([
         "docker", "compose", "exec", "-T", "db", 
@@ -108,7 +111,7 @@ async def test_masabbs_integration_workflow():
     # 1. Thread作成 (Manager)
     print("\n--- Step 1: Create Thread (Manager) ---")
     os.environ["AGENT_ID"] = "manager-1"
-    res = await create_thread("Integration Test Mission", "2026-12-31T23:59:59Z")
+    res = await create_thread("Integration Test Mission @worker-1", "2026-12-31T23:59:59Z")
     assert "Thread created" in res
     thread_id = re.search(r"Thread created: ([\w\-]+)", res).group(1)
     print(f"Thread ID: {thread_id}")
@@ -192,3 +195,52 @@ async def test_masabbs_integration_workflow():
                 assert t in msg_types, f"Message type '{t}' missing from DB. Current: {msg_types}"
 
     print("\nIntegration test passed successfully!")
+
+
+@pytest.mark.asyncio
+async def test_masabbs_subthread_permissions():
+    """Step 5: Subthread creation permissions, team inheritance, and Chef team scope check."""
+    # 1. TeamManager creates top-level thread
+    print("\n--- Subthread Test: Create Parent Thread (Manager) ---")
+    os.environ["AGENT_ID"] = "manager-1"
+    masatools.core.context._default_context = None
+    masatools.core._default_nats_client = None
+    
+    # We must include mention to pass validation
+    res = await create_thread("Parent Task for UI team @chef-1", "2026-12-31T23:59:59Z")
+    assert "Thread created" in res
+    parent_thread_id = re.search(r"Thread created: ([\w\-]+)", res).group(1)
+    print(f"Parent Thread ID: {parent_thread_id}")
+
+    # 2. Chef-1 (same team) creates subthread
+    print("\n--- Subthread Test: Chef-1 from Same Team (Succeeds) ---")
+    os.environ["AGENT_ID"] = "chef-1"
+    masatools.core.context._default_context = None
+    masatools.core._default_nats_client = None
+    
+    # Must include mention to pass validation
+    sub_res = await create_subthread(parent_thread_id, "Subtask API development @worker-1")
+    assert "Thread created" in sub_res
+    sub_thread_id = re.search(r"Thread created: ([\w\-]+)", sub_res).group(1)
+    print(f"Subthread ID: {sub_thread_id}")
+
+    # 3. Chef-2 (different team) tries to create subthread (Fails)
+    print("\n--- Subthread Test: Chef-2 from Different Team (Fails) ---")
+    os.environ["AGENT_ID"] = "chef-2"
+    masatools.core.context._default_context = None
+    masatools.core._default_nats_client = None
+    
+    fail_res = await create_subthread(parent_thread_id, "Different Team Subtask @worker-1")
+    assert "Error: Failed to create thread. Status: 403" in fail_res
+    assert "Chef is not a member of the parent thread's team" in fail_res
+
+    # 4. Worker tries to create subthread (Fails)
+    print("\n--- Subthread Test: Worker trying to create subthread (Fails) ---")
+    os.environ["AGENT_ID"] = "worker-1"
+    masatools.core.context._default_context = None
+    masatools.core._default_nats_client = None
+    
+    fail_res2 = await create_subthread(parent_thread_id, "Worker Subtask @chef-1")
+    assert "Error: Failed to create thread. Status: 403" in fail_res2
+    assert "only TeamManager or Chef can create subthreads" in fail_res2
+
