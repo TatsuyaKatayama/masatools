@@ -98,13 +98,13 @@ async def safe_tool_call(coro):
         return f"Error: {error_msg}"
 
 @mcp.tool()
-async def create_thread_tool(command: str, deadline: str, to: List[str] = [], observers: List[str] = [], parent_thread_id: str = None) -> str:
+async def create_thread_tool(command: str, deadline: str, to: List[str] = [], observers: List[str] = [], parent_thread_id: str = None, team_id: str = None) -> str:
     """
     Creates a new thread for a task. 
     'deadline' should be in ISO8601 or a descriptive format.
     'to' is a list of agent IDs to assign the task to.
     """
-    return await safe_tool_call(create_thread(command, deadline, to, observers, parent_thread_id))
+    return await safe_tool_call(create_thread(command, deadline, to, observers, parent_thread_id, team_id))
 
 @mcp.tool()
 async def create_subthread_tool(parent_thread_id: str, message: str) -> str:
@@ -148,13 +148,21 @@ async def check_board_tool(wait_seconds: int = 60, interval_seconds: int = 5) ->
     return await safe_tool_call(check_board(wait_seconds=wait_seconds, interval_seconds=interval_seconds))
 
 @mcp.tool()
-async def post_message_tool(message: str, thread_id: str = None, output_dir: str = None, error: str = None, metadata: Dict[str, Any] = None) -> str:
+async def post_message_tool(
+    message: str,
+    thread_id: str = None,
+    output_dir: str = None,
+    error: str = None,
+    metadata: Dict[str, Any] = None,
+    to: List[str] = [],
+    observers: List[str] = [],
+) -> str:
     """
     Posts a conversation message to the current thread.
     'message' is required and MUST contain at least one mention (e.g., @agent-id or @team).
     'output_dir', 'error', and 'metadata' are optional context.
     """
-    return await safe_tool_call(post_message(message, thread_id, output_dir, error, metadata))
+    return await safe_tool_call(post_message(message, thread_id, output_dir, error, metadata, to, observers))
 
 @mcp.tool()
 async def sync_from_s3_tool(thread_id: str, sub_path: str = "input/") -> str:

@@ -72,9 +72,11 @@ async def test_mcp_post_message_tool_call():
             output_dir="out",
             error=None,
             metadata={"kind": "progress"},
+            to=["agent-2"],
+            observers=["observer-1"],
         )
         assert result == "Message posted"
-        mock_post.assert_called_once_with("Done", "thread-1", "out", None, {"kind": "progress"})
+        mock_post.assert_called_once_with("Done", "thread-1", "out", None, {"kind": "progress"}, ["agent-2"], ["observer-1"])
 
 @pytest.mark.asyncio
 async def test_mcp_create_subthread_tool_call():

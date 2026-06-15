@@ -123,6 +123,8 @@ async def test_post_message_success():
             error=None,
             metadata={"kind": "progress"},
             thread_id=tid,
+            to=["manager"],
+            observers=["observer-1"],
         )
 
         assert f"Message posted to thread {tid}" in result
@@ -131,6 +133,8 @@ async def test_post_message_success():
         assert kwargs["json"]["message"] == "Implemented the requested change @manager."
         assert kwargs["json"]["output_dir"] == "results/dir"
         assert kwargs["json"]["metadata"] == {"kind": "progress"}
+        assert kwargs["json"]["to"] == ["manager"]
+        assert kwargs["json"]["observers"] == ["observer-1"]
 
 @pytest.mark.asyncio
 async def test_post_message_uses_current_thread_id():
@@ -270,12 +274,13 @@ async def test_create_thread_success():
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
         
-        result = await create_thread("do something", "2026-12-31")
+        result = await create_thread("do something", "2026-12-31", team_id="team-a")
         assert f"Thread created: {tid}" in result
         mock_post.assert_called_once()
         # Check payload
         args, kwargs = mock_post.call_args
         assert kwargs["json"]["command"] == "do something"
+        assert kwargs["json"]["team_id"] == "team-a"
 
 @pytest.mark.asyncio
 async def test_create_subthread_success():

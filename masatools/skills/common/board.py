@@ -100,7 +100,7 @@ async def register_agent(name: Optional[str] = None, role: str = "Worker", missi
         except Exception as e:
             return f"Error during agent registration: {e}"
 
-async def create_thread(command: str, deadline: str, to: List[str] = [], observers: List[str] = [], parent_thread_id: str = None) -> str:
+async def create_thread(command: str, deadline: str, to: List[str] = [], observers: List[str] = [], parent_thread_id: str = None, team_id: str = None) -> str:
     """
     Creates a new thread via the masabbs REST API.
     """
@@ -114,6 +114,8 @@ async def create_thread(command: str, deadline: str, to: List[str] = [], observe
         "to": to,
         "observers": observers
     }
+    if team_id:
+        payload["team_id"] = team_id
     if parent_thread_id:
         payload["parent_thread_id"] = parent_thread_id
     elif context.current_thread_id:
@@ -266,7 +268,15 @@ async def post_response(output_dir: Optional[str] = None, exit_code: int = 0, me
     
     return f"Result posted to {subject} (exit_code: {exit_code})"
 
-async def post_message(message: str, thread_id: str = None, output_dir: Optional[str] = None, error: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
+async def post_message(
+    message: str,
+    thread_id: str = None,
+    output_dir: Optional[str] = None,
+    error: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    to: Optional[List[str]] = None,
+    observers: Optional[List[str]] = None,
+) -> str:
     """
     Posts a conversation message to the current thread via REST API.
     Server handles mention resolution and NATS publishing.
@@ -284,6 +294,10 @@ async def post_message(message: str, thread_id: str = None, output_dir: Optional
         "from_agent": context.agent_id,
         "message": message.strip(),
     }
+    if to:
+        payload["to"] = to
+    if observers:
+        payload["observers"] = observers
     if output_dir:
         payload["output_dir"] = output_dir
     if error:
