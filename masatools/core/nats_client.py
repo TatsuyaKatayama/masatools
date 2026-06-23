@@ -12,6 +12,8 @@ class NATSClient:
         self.context = context
         self.nc = None
         self.js = None
+        self._pull_subscriptions = {}
+        self._pending_tasks = {}
 
     async def connect(self, max_reconnect_attempts: int = 3, connect_timeout: int = 5, allow_reconnect: bool = True):
         import asyncio
@@ -64,15 +66,37 @@ class NATSClient:
         data = envelope.model_dump_json(by_alias=True, exclude_none=True).encode()
         await self.js.publish(subject, data)
 
-    async def pull_task(self, stream: str, subject: str, durable: str) -> Optional[MessageEnvelope]:
+    async def pull_task(
+        self,
+        stream: str,
+        subject: str,
+        durable: str,
+        target_agent_id: Optional[str] = None,
+        batch_size: int = 100,
+    ) -> Optional[MessageEnvelope]:
         try:
-            psub = await self.js.pull_subscribe(subject, durable, stream=stream)
-            msgs = await psub.fetch(1, timeout=1)
+            subscription_key = (stream, subject, durable)
+            pending = self._pending_tasks.get(subscription_key)
+            if pending:
+                return pending.pop(0)
+
+            psub = self._pull_subscriptions.get(subscription_key)
+            if psub is None:
+                psub = await self.js.pull_subscribe(subject, durable, stream=stream)
+                self._pull_subscriptions[subscription_key] = psub
+            msgs = await psub.fetch(batch_size, timeout=1)
             for msg in msgs:
                 data = json.loads(msg.data.decode())
                 envelope = MessageEnvelope(**data)
+                if target_agent_id is not None and target_agent_id not in envelope.to:
+                    await msg.ack()
+                    continue
                 await msg.ack()
-                return envelope
+                self._pending_tasks.setdefault(subscription_key, []).append(envelope)
+
+            pending = self._pending_tasks.get(subscription_key)
+            if pending:
+                return pending.pop(0)
         except TimeoutError:
             return None
         except Exception as e:

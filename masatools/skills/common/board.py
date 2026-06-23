@@ -159,7 +159,8 @@ async def check_board(wait_seconds: int = 60, interval_seconds: int = 5) -> str:
         envelope = await client.pull_task(
             stream="board_tasks",
             subject="board.task.*",
-            durable=f"worker-{context.agent_id}"
+            durable=f"worker-{context.agent_id}",
+            target_agent_id=context.agent_id
         )
 
         if envelope:
