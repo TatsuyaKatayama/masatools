@@ -487,10 +487,9 @@ async def get_network() -> str:
                 relation = m.get("relation", {})
                 rel_type = relation.get("type", "unknown")
                 rel_cat = relation.get("category", "unknown")
-                status = m.get("status", "unknown")
                 mission = m.get("mission", "No mission")
                 
-                lines.append(f"- {agent_id} ({rel_type}/{rel_cat}): Status: {status}, Mission: {mission}")
+                lines.append(f"- {agent_id} ({rel_type}/{rel_cat}): Mission: {mission}")
                 
             return "\n".join(lines)
         except Exception as e:

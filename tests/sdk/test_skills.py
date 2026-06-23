@@ -350,7 +350,8 @@ async def test_get_network():
         
         assert "Your Local Network:" in result
         assert "boss-agent (leader/vertical)" in result
-        assert "Status: online" in result
+        assert "Status:" not in result
+        assert "Mission: Direct everything" in result
 
 @pytest.mark.asyncio
 async def test_create_thread_success():
