@@ -382,6 +382,7 @@ async def get_my_profile() -> str:
             data = response.json()
             agent = data.get("agent", {})
             team_mission = data.get("team_mission")
+            teams = data.get("teams") or []
             
             lines = [
                 f"Agent ID: {agent.get('id')}",
@@ -389,6 +390,10 @@ async def get_my_profile() -> str:
                 f"System Role: {agent.get('role')}",
                 f"Your Contribution Mission: {agent.get('mission') or 'Not assigned'}",
             ]
+            if teams:
+                lines.append("Teams:")
+                for team in teams:
+                    lines.append(f"- {team.get('id')}: {team.get('name')} - Mission: {team.get('mission') or 'None'}")
             if team_mission:
                 lines.append(f"Team Mission: {team_mission}")
                 
@@ -403,13 +408,29 @@ async def get_team_blueprint(team_id: Optional[str] = None) -> str:
     """
     context = get_default_context()
     
-    # If team_id is not provided, we need to get it from our profile first
+    # Prefer the active thread's team when available. This avoids guessing when an agent
+    # belongs to multiple teams.
     if not team_id:
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(f"{context.api_url}/agents/{context.agent_id}")
-                if resp.status_code == 200:
-                    team_id = resp.json().get("agent", {}).get("team_id")
+                if context.current_thread_id:
+                    thread_resp = await client.get(f"{context.api_url}/threads/{context.current_thread_id}")
+                    if thread_resp.status_code == 200:
+                        team_id = thread_resp.json().get("team_id")
+                if not team_id:
+                    resp = await client.get(f"{context.api_url}/agents/{context.agent_id}")
+                    if resp.status_code == 200:
+                        profile = resp.json()
+                        team_ids = profile.get("team_ids") or []
+                        if len(team_ids) == 1:
+                            team_id = team_ids[0]
+                        elif len(team_ids) > 1:
+                            return (
+                                "Error: team_id is ambiguous because this agent belongs to multiple teams. "
+                                f"Please provide one explicitly. Candidates: {', '.join(team_ids)}"
+                            )
+                        else:
+                            team_id = profile.get("agent", {}).get("team_id")
             except Exception:
                 pass
     
