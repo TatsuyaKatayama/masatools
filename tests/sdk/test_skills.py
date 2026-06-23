@@ -208,6 +208,10 @@ async def test_get_my_profile():
                     "role": "worker",
                     "mission": "Be efficient"
                 },
+                "team_ids": ["team-123"],
+                "teams": [
+                    {"id": "team-123", "name": "Test Team", "mission": "Save the world"}
+                ],
                 "team_mission": "Save the world"
             }
         )
@@ -218,6 +222,8 @@ async def test_get_my_profile():
         assert "Agent ID: agent-123" in result
         assert "System Role: worker" in result
         assert "Your Contribution Mission: Be efficient" in result
+        assert "Teams:" in result
+        assert "team-123: Test Team" in result
         assert "Team Mission: Save the world" in result
 
 @pytest.mark.asyncio
@@ -242,6 +248,87 @@ async def test_get_team_blueprint():
         assert "graph TD" in result
         assert "Agent A (manager)" in result
         assert "Agent B (worker)" in result
+
+@pytest.mark.asyncio
+async def test_get_team_blueprint_uses_single_profile_team():
+    context = board.get_default_context()
+    previous_thread_id = context.current_thread_id
+    context.current_thread_id = None
+    profile_response = MagicMock(
+        status_code=200,
+        json=lambda: {"agent": {"id": "agent-a"}, "team_ids": ["team-123"]},
+    )
+    blueprint_response = MagicMock(
+        status_code=200,
+        json=lambda: {
+            "team_id": "team-123",
+            "structure_mermaid": "graph TD\n  A --> B",
+            "members": []
+        },
+    )
+
+    try:
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = [profile_response, blueprint_response]
+
+            from masatools.skills.common.board import get_team_blueprint
+            result = await get_team_blueprint()
+
+            assert "Team ID: team-123" in result
+            assert mock_get.call_args_list[0].args[0].endswith("/agents/" + board.get_default_context().agent_id)
+            assert mock_get.call_args_list[1].args[0].endswith("/teams/team-123/blueprint")
+    finally:
+        context.current_thread_id = previous_thread_id
+
+@pytest.mark.asyncio
+async def test_get_team_blueprint_uses_active_thread_team_first():
+    context = board.get_default_context()
+    previous_thread_id = context.current_thread_id
+    context.current_thread_id = "thread-123"
+    thread_response = MagicMock(status_code=200, json=lambda: {"id": "thread-123", "team_id": "team-thread"})
+    blueprint_response = MagicMock(
+        status_code=200,
+        json=lambda: {
+            "team_id": "team-thread",
+            "structure_mermaid": "graph TD\n  A --> B",
+            "members": []
+        },
+    )
+
+    try:
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = [thread_response, blueprint_response]
+
+            from masatools.skills.common.board import get_team_blueprint
+            result = await get_team_blueprint()
+
+            assert "Team ID: team-thread" in result
+            assert mock_get.call_args_list[0].args[0].endswith("/threads/thread-123")
+            assert mock_get.call_args_list[1].args[0].endswith("/teams/team-thread/blueprint")
+    finally:
+        context.current_thread_id = previous_thread_id
+
+@pytest.mark.asyncio
+async def test_get_team_blueprint_requires_explicit_team_for_multiple_memberships():
+    context = board.get_default_context()
+    previous_thread_id = context.current_thread_id
+    context.current_thread_id = None
+    profile_response = MagicMock(
+        status_code=200,
+        json=lambda: {"agent": {"id": "agent-a"}, "team_ids": ["team-a", "team-b"]},
+    )
+
+    try:
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = profile_response
+
+            from masatools.skills.common.board import get_team_blueprint
+            result = await get_team_blueprint()
+
+            assert "team_id is ambiguous" in result
+            assert "team-a, team-b" in result
+    finally:
+        context.current_thread_id = previous_thread_id
 
 @pytest.mark.asyncio
 async def test_get_network():
