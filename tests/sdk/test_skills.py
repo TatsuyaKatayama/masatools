@@ -41,6 +41,7 @@ async def test_check_board_found():
         result = await check_board()
         assert f"Task found: task (Thread: {tid})" in result
         mock_client.pull_task.assert_called_once()
+        assert mock_client.pull_task.call_args.kwargs["target_agent_id"] == board.get_default_context().agent_id
 
 @pytest.mark.asyncio
 async def test_check_board_polls_until_task_found():
