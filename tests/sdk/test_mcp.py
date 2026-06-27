@@ -14,6 +14,7 @@ def test_mcp_tools_registered():
     from masatools.adapters.mcp.server import (
         check_board_tool, 
         get_runtime_context_tool,
+        wait_thread_result_tool,
         post_message_tool,
         start_monitoring_tool,
         sync_from_s3_tool, 
@@ -25,6 +26,7 @@ def test_mcp_tools_registered():
     )
     assert check_board_tool is not None
     assert get_runtime_context_tool is not None
+    assert wait_thread_result_tool is not None
     assert post_message_tool is not None
     assert start_monitoring_tool is not None
     assert sync_from_s3_tool is not None
@@ -77,6 +79,29 @@ async def test_mcp_post_message_tool_call():
         )
         assert result == "Message posted"
         mock_post.assert_called_once_with("Done", "thread-1", "out", None, {"kind": "progress"}, ["agent-2"], ["observer-1"])
+
+@pytest.mark.asyncio
+async def test_mcp_wait_thread_result_tool_call():
+    with patch("masatools.adapters.mcp.server.wait_thread_result", new_callable=AsyncMock) as mock_wait:
+        mock_wait.return_value = "Result found"
+        from masatools.adapters.mcp.server import wait_thread_result_tool
+        result = await wait_thread_result_tool(
+            thread_id="thread-1",
+            from_agent="benchman",
+            to_agent="reviewer",
+            wait_seconds=30,
+            interval_seconds=3,
+            message_contains="draft",
+        )
+        assert result == "Result found"
+        mock_wait.assert_called_once_with(
+            thread_id="thread-1",
+            from_agent="benchman",
+            to_agent="reviewer",
+            wait_seconds=30,
+            interval_seconds=3,
+            message_contains="draft",
+        )
 
 @pytest.mark.asyncio
 async def test_mcp_create_subthread_tool_call():

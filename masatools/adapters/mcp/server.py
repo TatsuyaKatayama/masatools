@@ -18,6 +18,7 @@ nats_logger.propagate = False
 from mcp.server.fastmcp import FastMCP
 from masatools.skills.common.board import (
     check_board, post_message, create_thread, create_subthread,
+    wait_thread_result,
     get_thread_history,
     get_team_blueprint, get_network, get_my_profile, register_agent,
     start_monitoring, get_runtime_context,
@@ -146,6 +147,29 @@ async def check_board_tool(wait_seconds: int = 60, interval_seconds: int = 5) ->
     or wait_seconds elapses. If monitoring has expired, it returns "Monitoring finished".
     """
     return await safe_tool_call(check_board(wait_seconds=wait_seconds, interval_seconds=interval_seconds))
+
+@mcp.tool()
+async def wait_thread_result_tool(
+    thread_id: str = None,
+    from_agent: str = None,
+    to_agent: str = None,
+    wait_seconds: int = 600,
+    interval_seconds: int = 10,
+    message_contains: str = None,
+) -> str:
+    """
+    Waits for a result message on board.result.<thread_id>.
+    Use this after posting a delegated task in the same parent thread.
+    'from_agent' narrows the expected responder, and 'to_agent' defaults to this AGENT_ID.
+    """
+    return await safe_tool_call(wait_thread_result(
+        thread_id=thread_id,
+        from_agent=from_agent,
+        to_agent=to_agent,
+        wait_seconds=wait_seconds,
+        interval_seconds=interval_seconds,
+        message_contains=message_contains,
+    ))
 
 @mcp.tool()
 async def post_message_tool(

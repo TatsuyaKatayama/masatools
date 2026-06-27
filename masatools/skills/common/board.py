@@ -1,6 +1,7 @@
 import os
 import asyncio
 import httpx
+import re
 from datetime import datetime, timedelta, timezone
 import math
 from typing import Optional, List, Any, Dict
@@ -36,6 +37,10 @@ def _remaining_seconds(now: Optional[datetime] = None) -> Optional[int]:
     if remaining is None:
         return None
     return math.ceil(remaining)
+
+
+def _durable_safe(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_-]+", "-", value)[:120]
 
 
 def start_monitoring(duration_seconds: int) -> str:
@@ -167,6 +172,18 @@ async def check_board(wait_seconds: int = 60, interval_seconds: int = 5) -> str:
             context.current_thread_id = envelope.thread_id
             return f"Task found: {envelope.type} (Thread: {envelope.thread_id})\nPayload: {envelope.payload}"
 
+        envelope = await client.pull_message(
+            stream="board_tasks",
+            subject="board.result.*",
+            durable=f"worker-{context.agent_id}-messages",
+            target_agent_id=context.agent_id,
+            message_type="result",
+        )
+
+        if envelope:
+            context.current_thread_id = envelope.thread_id
+            return f"Message found: {envelope.type} (Thread: {envelope.thread_id}, From: {envelope.from_agent})\nPayload: {envelope.payload}"
+
         now = asyncio.get_running_loop().time()
         remaining_wait_seconds = deadline - now
         if remaining_wait_seconds <= 0:
@@ -178,6 +195,71 @@ async def check_board(wait_seconds: int = 60, interval_seconds: int = 5) -> str:
 
         if sleep_seconds <= 0:
             return "Monitoring finished"
+
+        await asyncio.sleep(sleep_seconds)
+
+async def wait_thread_result(
+    thread_id: str = None,
+    from_agent: Optional[str] = None,
+    to_agent: Optional[str] = None,
+    wait_seconds: int = 600,
+    interval_seconds: int = 10,
+    message_contains: Optional[str] = None,
+) -> str:
+    """
+    Waits for a result message on board.result.<thread_id>.
+    Useful when one parent thread contains both a delegated task and its response.
+    """
+    context = get_default_context()
+
+    tid = thread_id or context.current_thread_id
+    if not tid:
+        return "Error: No active thread_id found in context."
+
+    client = await get_nats_client()
+    target_agent_id = to_agent or context.agent_id
+    deadline = asyncio.get_running_loop().time() + max(0, wait_seconds)
+    interval = max(1, interval_seconds)
+    durable_parts = ["wait-result", context.agent_id, tid]
+    if from_agent:
+        durable_parts.append(from_agent)
+    durable = _durable_safe("-".join(durable_parts))
+
+    while True:
+        remaining_monitor_seconds = _remaining_seconds_value()
+        if remaining_monitor_seconds == 0:
+            return f"Monitoring finished while waiting for result on thread {tid}"
+
+        envelope = await client.pull_message(
+            stream="board_tasks",
+            subject=f"board.result.{tid}",
+            durable=durable,
+            target_agent_id=target_agent_id,
+            from_agent=from_agent,
+            message_type="result",
+            thread_id=tid,
+            message_contains=message_contains,
+        )
+
+        if envelope:
+            context.current_thread_id = envelope.thread_id
+            return (
+                f"Result found: {envelope.type} "
+                f"(Thread: {envelope.thread_id}, From: {envelope.from_agent})\n"
+                f"Payload: {envelope.payload}"
+            )
+
+        now = asyncio.get_running_loop().time()
+        remaining_wait_seconds = deadline - now
+        if remaining_wait_seconds <= 0:
+            return f"No result found for thread {tid}"
+
+        sleep_seconds = min(interval, remaining_wait_seconds)
+        if remaining_monitor_seconds is not None:
+            sleep_seconds = min(sleep_seconds, remaining_monitor_seconds)
+
+        if sleep_seconds <= 0:
+            return f"Monitoring finished while waiting for result on thread {tid}"
 
         await asyncio.sleep(sleep_seconds)
 

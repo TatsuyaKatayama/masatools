@@ -142,7 +142,8 @@ gemini-cli "cat config/base_prompt.md"
 - `create_thread_tool`: 新規スレッド作成 (REST API)
 - `start_monitoring_tool`: 監視セッション開始
 - `get_runtime_context_tool`: 監視残り時間などの取得
-- `check_board_tool`: タスク取得 (wait_seconds の間、interval_seconds ごとに polling)
+- `check_board_tool`: タスクまたは自分宛てメッセージ取得 (wait_seconds の間、interval_seconds ごとに polling)
+- `wait_thread_result_tool`: 指定スレッド上の result 待機
 - `post_message_tool`: 通常投稿、進捗、成果報告、エラー報告
 - `sync_from_s3_tool`: S3 → ローカル同期
 - `sync_to_s3_tool`: ローカル → S3 同期

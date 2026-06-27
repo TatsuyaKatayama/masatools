@@ -55,6 +55,18 @@ def make_task(to=None, observers=None):
     }
 
 
+def make_result(thread_id=None, from_agent="agent-a", to=None, payload=None):
+    return {
+        "type": "result",
+        "thread_id": thread_id or str(ULID()),
+        "from": from_agent,
+        "to": to or [],
+        "observers": [],
+        "timestamp": 1,
+        "payload": payload or {"message": "done", "exit_code": 0},
+    }
+
+
 @pytest.mark.asyncio
 async def test_pull_task_returns_targeted_task_and_acks():
     msg = FakeMsg(make_task(to=["agent-b"]))
@@ -165,4 +177,48 @@ async def test_pull_task_without_target_filter_preserves_legacy_behavior():
 
     assert envelope is not None
     assert envelope.to == ["agent-c"]
+    assert msg.acked is True
+
+
+@pytest.mark.asyncio
+async def test_pull_message_returns_filtered_result_and_acks():
+    tid = str(ULID())
+    unrelated = FakeMsg(make_result(thread_id=tid, from_agent="agent-c", to=["agent-b"]))
+    targeted = FakeMsg(make_result(thread_id=tid, from_agent="agent-a", to=["agent-b"], payload={"message": "draft ready"}))
+    client = make_client([unrelated, targeted])
+
+    envelope = await client.pull_message(
+        stream="board_tasks",
+        subject=f"board.result.{tid}",
+        durable="wait-result-agent-b",
+        target_agent_id="agent-b",
+        from_agent="agent-a",
+        message_type="result",
+        thread_id=tid,
+        message_contains="draft ready",
+    )
+
+    assert envelope is not None
+    assert envelope.thread_id == tid
+    assert envelope.from_agent == "agent-a"
+    assert unrelated.acked is True
+    assert targeted.acked is True
+
+
+@pytest.mark.asyncio
+async def test_pull_message_skips_unaddressed_result():
+    tid = str(ULID())
+    msg = FakeMsg(make_result(thread_id=tid, from_agent="agent-a", to=["agent-c"]))
+    client = make_client([msg])
+
+    envelope = await client.pull_message(
+        stream="board_tasks",
+        subject=f"board.result.{tid}",
+        durable="wait-result-agent-b",
+        target_agent_id="agent-b",
+        message_type="result",
+        thread_id=tid,
+    )
+
+    assert envelope is None
     assert msg.acked is True

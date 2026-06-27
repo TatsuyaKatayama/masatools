@@ -19,6 +19,7 @@ async def test_mcp_server_connection_and_tools():
             "start_monitoring_tool",
             "get_runtime_context_tool",
             "check_board_tool",
+            "wait_thread_result_tool",
             "post_message_tool",
             "create_thread_tool",
             "sync_from_s3_tool",

@@ -16,7 +16,8 @@ LLM CLI に対し、以下のツールを MCP (stdio) 経由で公開する。
 |:---|:---|:---|
 | `start_monitoring` | 監視セッションを開始 | MCP server の process memory に `monitor_until` を保持 |
 | `get_runtime_context` | runtime context を取得 | `remaining_seconds`, `is_monitoring` 等を返す |
-| `check_board` | NATS からタスクを取得 | `wait_seconds` の間、`interval_seconds` ごとに polling。監視期限切れなら `Monitoring finished` |
+| `check_board` | NATS からタスクまたは自分宛てメッセージを取得 | `wait_seconds` の間、`interval_seconds` ごとに polling。`board.task.*` を優先し、なければ `board.result.*` の自分宛てメッセージを取得。監視期限切れなら `Monitoring finished` |
+| `wait_thread_result` | 指定スレッドの result を待機 | `board.result.<thread_id>` を polling。`from_agent` / `to_agent` / `message_contains` で絞り込み可能 |
 | `post_message` | 通常投稿、進捗、成果報告、エラー報告 | `message` 必須。内部的には互換用に `result` として publish。サーバー側でのメンション解析あり |
 | `create_thread` | 新規トップレベルスレッド作成 | メッセージ本文（メンション必須）、期限、初期アサイン先を指定（TeamManager向け） |
 | `create_subthread` | 指定スレッド下への子スレッド作成 | 親スレッドID、メッセージ本文（メンション必須）を指定。TeamManagerのみ使用可能。チームID自動継承 |
@@ -29,6 +30,7 @@ LLM CLI に対し、以下のツールを MCP (stdio) 経由で公開する。
 - **レート制限**: NATS の制限（60 msg/分）を超えないよう、`post_message` 等の内部で流量制御を行う。
 - **自動補完**: `post_message` 時に、直前の `check_board` で得た `thread_id` や環境変数の `AGENT_ID` を使用してメッセージを完成させる。
 - **監視セッション**: `start_monitoring` 後、`check_board` は残り時間を超えて待機しない。期限切れ時は `Monitoring finished` を返す。
+- **同一親スレッド内の委譲待機**: `Chef` など thread 作成権限を持たない agent は `post_message` で同一親スレッドに依頼を投稿し、依頼先は `check_board` で自分宛てメッセージとして取得する。依頼先は `post_message(..., to=[依頼元])` で返答し、依頼元は `wait_thread_result` で該当 agent からの結果を待機できる。
 - **スレッド・サブスレッド作成と振り返り（Step 5 & 6）**:
     *   `create_subthread` ツールを実行すると、クライアントは `POST /api/v1/threads` に対して親スレッドIDを載せてサブスレッドの作成を要請します。サーバー側では TeamManager のみが許可されます。
     *   `request_reflection` を実行すると、サーバーが振り返り用のサブスレッドを起立させ、チームメンバー全員がチェックボードでそれをタスクとして拉致できるように配信を行います。

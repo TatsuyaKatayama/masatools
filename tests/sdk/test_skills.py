@@ -6,6 +6,7 @@ from masatools.skills.common.board import (
     get_runtime_context,
     post_message,
     post_response,
+    wait_thread_result,
     create_thread,
     create_subthread,
     send_offer,
@@ -44,6 +45,28 @@ async def test_check_board_found():
         assert mock_client.pull_task.call_args.kwargs["target_agent_id"] == board.get_default_context().agent_id
 
 @pytest.mark.asyncio
+async def test_check_board_found_addressed_message():
+    tid = str(ULID())
+    mock_envelope = MessageEnvelope(
+        type="result",
+        thread_id=tid,
+        from_agent="reviewer",
+        to=["test-agent"],
+        payload={"message": "please do this", "exit_code": 0}
+    )
+
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
+        mock_client = mock_get_nats.return_value
+        mock_client.pull_task.return_value = None
+        mock_client.pull_message.return_value = mock_envelope
+
+        result = await check_board()
+        assert f"Message found: result (Thread: {tid}, From: reviewer)" in result
+        mock_client.pull_task.assert_called_once()
+        mock_client.pull_message.assert_called_once()
+        assert mock_client.pull_message.call_args.kwargs["target_agent_id"] == board.get_default_context().agent_id
+
+@pytest.mark.asyncio
 async def test_check_board_polls_until_task_found():
     tid = str(ULID())
     mock_envelope = MessageEnvelope(
@@ -57,6 +80,7 @@ async def test_check_board_polls_until_task_found():
          patch("masatools.skills.common.board.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
         mock_client = mock_get_nats.return_value
         mock_client.pull_task.side_effect = [None, mock_envelope]
+        mock_client.pull_message.return_value = None
 
         result = await check_board(wait_seconds=10, interval_seconds=2)
         assert f"Task found: task (Thread: {tid})" in result
@@ -69,10 +93,12 @@ async def test_check_board_returns_no_messages_after_timeout():
     with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
         mock_client = mock_get_nats.return_value
         mock_client.pull_task.return_value = None
+        mock_client.pull_message.return_value = None
 
         result = await check_board(wait_seconds=0, interval_seconds=1)
         assert result == "No messages found"
         mock_client.pull_task.assert_called_once()
+        mock_client.pull_message.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_check_board_returns_monitoring_finished_after_expiry():
@@ -84,6 +110,7 @@ async def test_check_board_returns_monitoring_finished_after_expiry():
         result = await check_board(wait_seconds=10, interval_seconds=1)
         assert result == "Monitoring finished"
         mock_client.pull_task.assert_not_called()
+        mock_client.pull_message.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_check_board_limits_wait_to_remaining_monitoring_time():
@@ -94,11 +121,67 @@ async def test_check_board_limits_wait_to_remaining_monitoring_time():
          patch("masatools.skills.common.board._remaining_seconds_value", side_effect=[1, 0]):
         mock_client = mock_get_nats.return_value
         mock_client.pull_task.return_value = None
+        mock_client.pull_message.return_value = None
 
         result = await check_board(wait_seconds=10, interval_seconds=5)
         assert result == "Monitoring finished"
         mock_sleep.assert_called_once()
         assert mock_sleep.call_args.args[0] <= 1
+
+@pytest.mark.asyncio
+async def test_wait_thread_result_found():
+    tid = str(ULID())
+    mock_envelope = MessageEnvelope(
+        type="result",
+        thread_id=tid,
+        from_agent="benchman",
+        to=["reviewer"],
+        payload={"message": "bench result", "exit_code": 0}
+    )
+
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats, \
+         patch("masatools.skills.common.board.get_default_context") as mock_context:
+        mock_client = mock_get_nats.return_value
+        mock_client.pull_message.return_value = mock_envelope
+        mock_context.return_value.agent_id = "reviewer"
+        mock_context.return_value.current_thread_id = None
+
+        result = await wait_thread_result(
+            thread_id=tid,
+            from_agent="benchman",
+            wait_seconds=10,
+            interval_seconds=2,
+            message_contains="bench result",
+        )
+
+        assert f"Result found: result (Thread: {tid}, From: benchman)" in result
+        mock_client.pull_message.assert_called_once()
+        kwargs = mock_client.pull_message.call_args.kwargs
+        assert kwargs["subject"] == f"board.result.{tid}"
+        assert kwargs["target_agent_id"] == "reviewer"
+        assert kwargs["from_agent"] == "benchman"
+        assert kwargs["message_contains"] == "bench result"
+
+@pytest.mark.asyncio
+async def test_wait_thread_result_timeout():
+    tid = str(ULID())
+    with patch("masatools.skills.common.board.get_nats_client", new_callable=AsyncMock) as mock_get_nats:
+        mock_client = mock_get_nats.return_value
+        mock_client.pull_message.return_value = None
+
+        result = await wait_thread_result(thread_id=tid, wait_seconds=0, interval_seconds=1)
+
+        assert result == f"No result found for thread {tid}"
+        mock_client.pull_message.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_wait_thread_result_requires_thread_id():
+    with patch("masatools.skills.common.board.get_default_context") as mock_context:
+        mock_context.return_value.current_thread_id = None
+
+        result = await wait_thread_result()
+
+        assert result == "Error: No active thread_id found in context."
 
 def test_start_monitoring_and_runtime_context():
     result = start_monitoring(duration_seconds=1800)

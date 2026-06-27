@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Optional, List, Callable, Awaitable
+from typing import Optional, List
 import nats
 import nkeys
 from nats.errors import TimeoutError
@@ -101,6 +101,58 @@ class NATSClient:
             return None
         except Exception as e:
             print(f"Error pulling task: {e}")
+            return None
+
+    async def pull_message(
+        self,
+        stream: str,
+        subject: str,
+        durable: str,
+        target_agent_id: Optional[str] = None,
+        from_agent: Optional[str] = None,
+        message_type: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        message_contains: Optional[str] = None,
+        batch_size: int = 100,
+    ) -> Optional[MessageEnvelope]:
+        try:
+            subscription_key = (stream, subject, durable)
+            pending = self._pending_tasks.get(subscription_key)
+            if pending:
+                return pending.pop(0)
+
+            psub = self._pull_subscriptions.get(subscription_key)
+            if psub is None:
+                psub = await self.js.pull_subscribe(subject, durable, stream=stream)
+                self._pull_subscriptions[subscription_key] = psub
+            msgs = await psub.fetch(batch_size, timeout=1)
+            for msg in msgs:
+                data = json.loads(msg.data.decode())
+                envelope = MessageEnvelope(**data)
+                await msg.ack()
+
+                if message_type is not None and envelope.type != message_type:
+                    continue
+                if thread_id is not None and envelope.thread_id != thread_id:
+                    continue
+                if from_agent is not None and envelope.from_agent != from_agent:
+                    continue
+                if target_agent_id is not None and target_agent_id not in envelope.to:
+                    continue
+                if message_contains is not None:
+                    payload_text = json.dumps(envelope.payload, ensure_ascii=False, sort_keys=True)
+                    if message_contains not in payload_text:
+                        continue
+
+                self._pending_tasks.setdefault(subscription_key, []).append(envelope)
+
+            pending = self._pending_tasks.get(subscription_key)
+            if pending:
+                return pending.pop(0)
+        except TimeoutError:
+            return None
+        except Exception as e:
+            print(f"Error pulling message: {e}")
             return None
 
     async def close(self):
