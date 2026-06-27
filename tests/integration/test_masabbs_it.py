@@ -232,7 +232,7 @@ async def test_masabbs_subthread_permissions():
     
     fail_res = await create_subthread(parent_thread_id, "Different Team Subtask @worker-1")
     assert "Error: Failed to create thread. Status: 403" in fail_res
-    assert "only TeamManager can create subthreads" in fail_res
+    assert "PERMISSION_DENIED" in fail_res
 
     # 4. Worker tries to create subthread (Fails)
     print("\n--- Subthread Test: Worker trying to create subthread (Fails) ---")
@@ -308,4 +308,3 @@ async def test_masabbs_reflection_integration():
     )
     assert "Error: Failed to submit reflection" in unrelated_res
     assert "INVALID_TARGET_AGENT" in unrelated_res
-
