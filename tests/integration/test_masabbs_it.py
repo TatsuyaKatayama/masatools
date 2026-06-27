@@ -199,7 +199,7 @@ async def test_masabbs_integration_workflow():
 
 @pytest.mark.asyncio
 async def test_masabbs_subthread_permissions():
-    """Step 5: Subthread creation permissions, team inheritance, and Chef team scope check."""
+    """Step 5: Subthread creation permissions and team inheritance."""
     # 1. TeamManager creates top-level thread
     print("\n--- Subthread Test: Create Parent Thread (Manager) ---")
     os.environ["AGENT_ID"] = "manager-1"
@@ -212,9 +212,9 @@ async def test_masabbs_subthread_permissions():
     parent_thread_id = re.search(r"Thread created: ([\w\-]+)", res).group(1)
     print(f"Parent Thread ID: {parent_thread_id}")
 
-    # 2. Chef-1 (same team) creates subthread
-    print("\n--- Subthread Test: Chef-1 from Same Team (Succeeds) ---")
-    os.environ["AGENT_ID"] = "chef-1"
+    # 2. TeamManager creates subthread
+    print("\n--- Subthread Test: TeamManager creates subthread (Succeeds) ---")
+    os.environ["AGENT_ID"] = "manager-1"
     masatools.core.context._default_context = None
     masatools.core._default_nats_client = None
     
@@ -224,15 +224,15 @@ async def test_masabbs_subthread_permissions():
     sub_thread_id = re.search(r"Thread created: ([\w\-]+)", sub_res).group(1)
     print(f"Subthread ID: {sub_thread_id}")
 
-    # 3. Chef-2 (different team) tries to create subthread (Fails)
-    print("\n--- Subthread Test: Chef-2 from Different Team (Fails) ---")
+    # 3. Chef tries to create subthread (Fails)
+    print("\n--- Subthread Test: Chef trying to create subthread (Fails) ---")
     os.environ["AGENT_ID"] = "chef-2"
     masatools.core.context._default_context = None
     masatools.core._default_nats_client = None
     
     fail_res = await create_subthread(parent_thread_id, "Different Team Subtask @worker-1")
     assert "Error: Failed to create thread. Status: 403" in fail_res
-    assert "Chef is not a member of the parent thread's team" in fail_res
+    assert "only TeamManager can create subthreads" in fail_res
 
     # 4. Worker tries to create subthread (Fails)
     print("\n--- Subthread Test: Worker trying to create subthread (Fails) ---")
@@ -242,7 +242,7 @@ async def test_masabbs_subthread_permissions():
     
     fail_res2 = await create_subthread(parent_thread_id, "Worker Subtask @chef-1")
     assert "Error: Failed to create thread. Status: 403" in fail_res2
-    assert "only TeamManager or Chef can create subthreads" in fail_res2
+    assert "only TeamManager can create subthreads" in fail_res2
 
 
 @pytest.mark.asyncio
@@ -308,5 +308,4 @@ async def test_masabbs_reflection_integration():
     )
     assert "Error: Failed to submit reflection" in unrelated_res
     assert "INVALID_TARGET_AGENT" in unrelated_res
-
 
